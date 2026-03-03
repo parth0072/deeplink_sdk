@@ -1,0 +1,94 @@
+import Foundation
+
+/// Main entry point for the Deeplink SDK.
+///
+/// **Setup (AppDelegate / @main):**
+/// ```swift
+/// DeeplinkSDK.configure(apiKey: "your-api-key", domain: "dl.yourapp.com")
+/// ```
+///
+/// **Handle universal links (SceneDelegate):**
+/// ```swift
+/// func scene(_ scene: UIScene, continue userActivity: NSUserActivity) {
+///     guard let url = userActivity.webpageURL else { return }
+///     DeeplinkSDK.handleIncomingURL(url) { link in
+///         // Navigate using link.pathComponents or link.params
+///     }
+/// }
+/// ```
+///
+/// **Deferred deep link (first launch):**
+/// ```swift
+/// DeeplinkSDK.getInitData { data in
+///     guard let data = data else { return }
+///     // Navigate to data.iosUrl or parse data.destinationUrl
+/// }
+/// ```
+public final class DeeplinkSDK {
+    // MARK: - Singleton
+
+    private static var shared: DeeplinkSDK?
+
+    private let config: DeeplinkConfig
+    private let apiClient: APIClient
+    private let linkHandler: LinkHandler
+
+    private static let initDataKey = "dl_sdk_init_data_fetched"
+
+    private init(config: DeeplinkConfig) {
+        self.config = config
+        self.apiClient = APIClient(config: config)
+        self.linkHandler = LinkHandler(config: config)
+    }
+
+    // MARK: - Public API
+
+    /// Configure the SDK. Call this once on app launch before any other SDK methods.
+    public static func configure(apiKey: String, domain: String) {
+        shared = DeeplinkSDK(config: DeeplinkConfig(apiKey: apiKey, domain: domain))
+    }
+
+    /// Handle an incoming URL (universal link or custom URL scheme).
+    /// - Returns: Parsed ``IncomingLink`` if the URL belongs to this SDK's domain.
+    @discardableResult
+    public static func handleIncomingURL(_ url: URL, completion: ((IncomingLink?) -> Void)? = nil) -> IncomingLink? {
+        guard let sdk = shared else {
+            assertionFailure("DeeplinkSDK.configure() must be called before handling URLs")
+            return nil
+        }
+        let link = sdk.linkHandler.handle(url: url)
+        completion?(link)
+        return link
+    }
+
+    /// Fetch deferred deep link data from the server.
+    /// Call this once on first launch (e.g. after onboarding completes).
+    /// Subsequent calls are no-ops unless `force` is true.
+    public static func getInitData(force: Bool = false, completion: @escaping (DeeplinkData?) -> Void) {
+        guard let sdk = shared else {
+            assertionFailure("DeeplinkSDK.configure() must be called first")
+            completion(nil)
+            return
+        }
+
+        let alreadyFetched = UserDefaults.standard.bool(forKey: initDataKey)
+        guard !alreadyFetched || force else {
+            completion(nil)
+            return
+        }
+
+        sdk.apiClient.fetchInitData { data in
+            if data != nil {
+                UserDefaults.standard.set(true, forKey: initDataKey)
+            }
+            DispatchQueue.main.async {
+                completion(data)
+            }
+        }
+    }
+
+    /// Reset the "already fetched" flag (useful for testing).
+    public static func resetInitState() {
+        UserDefaults.standard.removeObject(forKey: initDataKey)
+    }
+}
