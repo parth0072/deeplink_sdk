@@ -34,6 +34,7 @@ public final class DeeplinkSDK {
     private let linkHandler: LinkHandler
 
     private static let initDataKey = "dl_sdk_init_data_fetched"
+    private static let sessionIdKey = "dl_sdk_session_id"
 
     private init(config: DeeplinkConfig) {
         self.config = config
@@ -87,8 +88,35 @@ public final class DeeplinkSDK {
         }
     }
 
+    /// Track a custom event. Properties values must be JSON-serialisable types
+    /// (String, Int, Double, Bool).
+    ///
+    /// ```swift
+    /// DeeplinkSDK.track("purchase", properties: ["amount": 49.99, "currency": "USD"])
+    /// ```
+    public static func track(_ name: String, properties: [String: Any] = [:]) {
+        guard let sdk = shared else {
+            assertionFailure("DeeplinkSDK.configure() must be called first")
+            return
+        }
+        sdk.apiClient.trackEvent(name: name, properties: properties, sessionId: currentSessionId())
+    }
+
     /// Reset the "already fetched" flag (useful for testing).
     public static func resetInitState() {
         UserDefaults.standard.removeObject(forKey: initDataKey)
+    }
+
+    // MARK: - Session
+
+    /// Returns the persistent session ID, creating one on first call.
+    private static func currentSessionId() -> String {
+        let defaults = UserDefaults.standard
+        if let existing = defaults.string(forKey: sessionIdKey) {
+            return existing
+        }
+        let newId = UUID().uuidString
+        defaults.set(newId, forKey: sessionIdKey)
+        return newId
     }
 }

@@ -12,6 +12,12 @@ public struct DeeplinkData {
     public let utmCampaign: String?
     public let utmContent: String?
     public let utmTerm: String?
+    /// Custom key-value metadata set on the link in the dashboard.
+    public let metadata: [String: String]
+    /// Creative name for attribution reporting.
+    public let creativeName: String?
+    /// Creative ID for attribution reporting.
+    public let creativeId: String?
 }
 
 // MARK: - Internal Codable representation
@@ -32,6 +38,9 @@ struct SDKInitData: Decodable {
     let utmCampaign: String?
     let utmContent: String?
     let utmTerm: String?
+    let metadata: [String: String]?
+    let creativeName: String?
+    let creativeId: String?
 
     func toDeeplinkData() -> DeeplinkData {
         DeeplinkData(
@@ -44,7 +53,10 @@ struct SDKInitData: Decodable {
             utmMedium: utmMedium,
             utmCampaign: utmCampaign,
             utmContent: utmContent,
-            utmTerm: utmTerm
+            utmTerm: utmTerm,
+            metadata: metadata ?? [:],
+            creativeName: creativeName,
+            creativeId: creativeId
         )
     }
 }

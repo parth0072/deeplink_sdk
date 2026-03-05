@@ -29,6 +29,7 @@ object DeeplinkSDK {
 
     private const val PREFS_NAME = "deeplink_sdk"
     private const val PREF_INIT_FETCHED = "init_fetched"
+    private const val PREF_SESSION_ID = "session_id"
 
     private var config: DeeplinkConfig? = null
     private var linkHandler: LinkHandler? = null
@@ -83,6 +84,22 @@ object DeeplinkSDK {
         }
     }
 
+    /**
+     * Track a custom event with optional properties.
+     *
+     * ```kotlin
+     * DeeplinkSDK.track("purchase", mapOf("amount" to 49.99, "currency" to "USD"))
+     * ```
+     *
+     * @param name Event name (e.g. "signup", "purchase").
+     * @param properties Optional map of event properties (String, Int, Double, Boolean values).
+     */
+    fun track(name: String, properties: Map<String, Any> = emptyMap()) {
+        val cfg = requireConfig()
+        val sessionId = currentSessionId()
+        ApiClient.trackEvent(cfg, name, properties, sessionId)
+    }
+
     /** Reset the "already fetched" flag (useful for testing). */
     fun resetInitState() {
         val ctx = appContext ?: return
@@ -97,4 +114,12 @@ object DeeplinkSDK {
 
     private fun requireHandler(): LinkHandler =
         linkHandler ?: error("DeeplinkSDK.configure() must be called before using the SDK")
+
+    private fun currentSessionId(): String {
+        val ctx = appContext ?: error("DeeplinkSDK not configured")
+        val prefs = ctx.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        return prefs.getString(PREF_SESSION_ID, null) ?: java.util.UUID.randomUUID().toString().also {
+            prefs.edit().putString(PREF_SESSION_ID, it).apply()
+        }
+    }
 }

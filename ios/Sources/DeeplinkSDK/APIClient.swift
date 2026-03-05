@@ -44,6 +44,32 @@ final class APIClient {
         task.resume()
     }
 
+    /// POST /api/events — track a custom event.
+    func trackEvent(name: String, properties: [String: Any], sessionId: String, completion: ((Bool) -> Void)? = nil) {
+        var url = config.apiBaseURL
+        url.appendPathComponent("api/events")
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+
+        var body: [String: Any] = [
+            "api_key": config.apiKey,
+            "name": name,
+            "session_id": sessionId,
+        ]
+        if !properties.isEmpty {
+            body["properties"] = properties
+        }
+        request.httpBody = try? JSONSerialization.data(withJSONObject: body)
+
+        let task = session.dataTask(with: request) { _, response, _ in
+            let ok = (response as? HTTPURLResponse).map { (200...299).contains($0.statusCode) } ?? false
+            completion?(ok)
+        }
+        task.resume()
+    }
+
     // MARK: - Helpers
 
     private func userAgent() -> String {

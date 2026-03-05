@@ -44,6 +44,11 @@ internal object ApiClient {
                     return@Thread
                 }
 
+                val metadataMap = mutableMapOf<String, String>()
+                data.optJSONObject("metadata")?.let { meta ->
+                    meta.keys().forEach { key -> metadataMap[key] = meta.optString(key) }
+                }
+
                 callback(
                     DeeplinkData(
                         linkId = data.getString("linkId"),
@@ -56,11 +61,39 @@ internal object ApiClient {
                         utmCampaign = data.optString("utmCampaign").takeIf { it.isNotEmpty() },
                         utmContent = data.optString("utmContent").takeIf { it.isNotEmpty() },
                         utmTerm = data.optString("utmTerm").takeIf { it.isNotEmpty() },
+                        metadata = metadataMap,
+                        creativeName = data.optString("creativeName").takeIf { it.isNotEmpty() },
+                        creativeId = data.optString("creativeId").takeIf { it.isNotEmpty() },
                     )
                 )
             } catch (e: Exception) {
                 callback(null)
             }
+        }.start()
+    }
+
+    fun trackEvent(config: DeeplinkConfig, name: String, properties: Map<String, Any>, sessionId: String) {
+        Thread {
+            try {
+                val url = URL("${config.apiBaseUrl}/api/events")
+                val conn = url.openConnection() as HttpURLConnection
+                conn.requestMethod = "POST"
+                conn.setRequestProperty("Content-Type", "application/json")
+                conn.doOutput = true
+                conn.connectTimeout = 10_000
+                conn.readTimeout = 10_000
+
+                val propsJson = JSONObject(properties)
+                val body = JSONObject().apply {
+                    put("api_key", config.apiKey)
+                    put("name", name)
+                    put("session_id", sessionId)
+                    if (properties.isNotEmpty()) put("properties", propsJson)
+                }.toString()
+
+                OutputStreamWriter(conn.outputStream).use { it.write(body) }
+                conn.responseCode // trigger the request
+            } catch (_: Exception) { }
         }.start()
     }
 

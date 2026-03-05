@@ -14,6 +14,12 @@ data class DeeplinkData(
     val utmCampaign: String?,
     val utmContent: String?,
     val utmTerm: String?,
+    /** Custom key-value metadata set on the link in the dashboard. */
+    val metadata: Map<String, String> = emptyMap(),
+    /** Creative name for attribution reporting. */
+    val creativeName: String? = null,
+    /** Creative ID for attribution reporting. */
+    val creativeId: String? = null,
 )
 
 /** Parsed incoming Android App Link or custom scheme URL. */
