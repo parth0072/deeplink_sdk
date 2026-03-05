@@ -11,10 +11,22 @@ Native mobile SDKs for the Deeplink AI platform. Handles deferred deep linking, 
 │   ├── Package.swift
 │   └── Sources/
 │       └── DeeplinkSDK/
+│           ├── DeeplinkSDK.swift     # Main entry point
+│           ├── APIClient.swift       # HTTP client
+│           ├── DeeplinkData.swift    # Data models
+│           ├── DeeplinkConfig.swift  # Config
+│           ├── LinkHandler.swift     # URL parsing
+│           └── IncomingLink.swift    # Parsed link model
 └── android/              # Android SDK (Kotlin Library)
     ├── build.gradle
     └── deeplinkSDK/
-        └── src/
+        └── src/main/kotlin/com/deeplink/sdk/
+            ├── DeeplinkSDK.kt        # Main entry point
+            ├── ApiClient.kt          # HTTP client
+            ├── DeeplinkData.kt       # Data models
+            ├── DeeplinkConfig.kt     # Config
+            ├── LinkHandler.kt        # Intent parsing
+            └── IncomingLink.kt       # Parsed link model
 ```
 
 ---
@@ -30,7 +42,7 @@ Native mobile SDKs for the Deeplink AI platform. Handles deferred deep linking, 
 
 #### Swift Package Manager
 
-In Xcode: **File → Add Packages** and enter the repository URL, or add to your `Package.swift`:
+In Xcode: **File → Add Package Dependencies** and enter the repository URL, or add to your `Package.swift`:
 
 ```swift
 dependencies: [
@@ -41,37 +53,52 @@ dependencies: [
 ### Setup
 
 ```swift
+// AppDelegate.swift or @main App struct
 import DeeplinkSDK
 
-@main
-struct MyApp: App {
-    init() {
-        DeeplinkSDK.shared.configure(
-            apiKey: "your_api_key",
-            baseURL: "https://your-api.example.com"
-        )
-    }
-}
+DeeplinkSDK.configure(apiKey: "your-api-key", domain: "dl.yourapp.com")
 ```
 
 ### Deferred Deep Linking
 
-Call on app launch to retrieve the deep link data for a user who installed via a link:
+Call once on first launch (after onboarding) to retrieve the deep link that brought the user to install:
 
 ```swift
-DeeplinkSDK.shared.initialize { result in
-    switch result {
-    case .success(let data):
-        if let alias = data["alias"] as? String {
-            // Navigate to the appropriate screen
-        }
-    case .failure(let error):
-        print("No deferred link found: \(error)")
+DeeplinkSDK.getInitData { data in
+    guard let data = data else { return }
+    // data.destinationUrl — fallback URL
+    // data.iosUrl         — iOS-specific deep link URL
+    // data.metadata       — [String: String] custom key-value pairs
+    // data.creativeName   — creative name (if set on the link)
+    // data.creativeId     — creative ID (if set on the link)
+    navigateTo(data.iosUrl ?? data.destinationUrl)
+}
+
+// Force re-fetch (e.g. for testing)
+DeeplinkSDK.getInitData(force: true) { data in ... }
+
+// Reset fetched flag
+DeeplinkSDK.resetInitState()
+```
+
+### Universal Links (iOS 14+)
+
+In `SceneDelegate.swift`:
+
+```swift
+func scene(_ scene: UIScene, continue userActivity: NSUserActivity) {
+    guard let url = userActivity.webpageURL else { return }
+    DeeplinkSDK.handleIncomingURL(url) { link in
+        guard let link = link else { return }
+        // link.pathComponents — URL path segments
+        // link.params         — query parameters [String: String]
     }
 }
 ```
 
-### Universal Links (iOS 14+)
+Enable Universal Links in your `.entitlements` and use the AASA URL from the admin Settings page.
+
+### SKAdNetwork (iOS 14+)
 
 Add the Deeplink AI postback URL to your `Info.plist`:
 
@@ -80,15 +107,15 @@ Add the Deeplink AI postback URL to your `Info.plist`:
 <string>https://your-api.example.com/skan/postback</string>
 ```
 
-Enable Universal Links in your entitlements and use the AASA URL from the admin Settings page.
-
 ### Event Tracking
 
 ```swift
-DeeplinkSDK.shared.track(event: "purchase", properties: [
+DeeplinkSDK.track("purchase", properties: [
     "amount": 49.99,
     "currency": "USD"
 ])
+
+DeeplinkSDK.track("signup")
 ```
 
 ---
@@ -101,19 +128,18 @@ DeeplinkSDK.shared.track(event: "purchase", properties: [
 
 ### Installation
 
-Add to your module's `build.gradle`:
+Add the module to your `settings.gradle`:
+
+```groovy
+include ':deeplinkSDK'
+project(':deeplinkSDK').projectDir = file('../sdk/android/deeplinkSDK')
+```
+
+Add dependency in your app's `build.gradle`:
 
 ```groovy
 dependencies {
     implementation project(':deeplinkSDK')
-}
-```
-
-Or if publishing to Maven:
-
-```groovy
-dependencies {
-    implementation 'com.deeplink:sdk:1.0.0'
 }
 ```
 
@@ -127,32 +153,36 @@ import com.deeplink.sdk.DeeplinkSDK
 class MyApplication : Application() {
     override fun onCreate() {
         super.onCreate()
-        DeeplinkSDK.init(
-            context = this,
-            apiKey = "your_api_key",
-            baseUrl = "https://your-api.example.com"
-        )
+        DeeplinkSDK.configure(this, apiKey = "your-api-key", domain = "dl.yourapp.com")
     }
 }
 ```
 
 ### Deferred Deep Linking
 
+Call once after onboarding on first launch:
+
 ```kotlin
-DeeplinkSDK.getInstance().initialize { result ->
-    result.onSuccess { data ->
-        val alias = data["alias"] as? String
-        // Navigate to the appropriate screen
-    }
-    result.onFailure { error ->
-        Log.d("DeeplinkSDK", "No deferred link: ${error.message}")
-    }
+DeeplinkSDK.getInitData { data ->
+    data ?: return@getInitData
+    // data.destinationUrl — fallback URL
+    // data.androidUrl     — Android-specific deep link URL
+    // data.metadata       — Map<String, String> custom key-value pairs
+    // data.creativeName   — creative name (if set on the link)
+    // data.creativeId     — creative ID (if set on the link)
+    openDeepLink(data.androidUrl ?: data.destinationUrl)
 }
+
+// Force re-fetch (e.g. for testing)
+DeeplinkSDK.getInitData(force = true) { data -> ... }
+
+// Reset fetched flag
+DeeplinkSDK.resetInitState()
 ```
 
 ### Android App Links
 
-Add the assetlinks URL from the admin Settings page to verify your domain. In your `AndroidManifest.xml`:
+In your `AndroidManifest.xml`:
 
 ```xml
 <activity android:name=".MainActivity">
@@ -160,18 +190,35 @@ Add the assetlinks URL from the admin Settings page to verify your domain. In yo
         <action android:name="android.intent.action.VIEW" />
         <category android:name="android.intent.category.DEFAULT" />
         <category android:name="android.intent.category.BROWSABLE" />
-        <data android:scheme="https" android:host="your-api.example.com" />
+        <data android:scheme="https" android:host="dl.yourapp.com" />
     </intent-filter>
 </activity>
 ```
 
+Handle the incoming intent in your Activity:
+
+```kotlin
+override fun onCreate(savedInstanceState: Bundle?) {
+    super.onCreate(savedInstanceState)
+    DeeplinkSDK.handleIntent(intent) { link ->
+        link ?: return@handleIntent
+        // link.pathSegments — URL path segments
+        // link.params       — query parameters Map<String, String>
+    }
+}
+```
+
+Use the assetlinks URL from the admin Settings page to verify your domain.
+
 ### Event Tracking
 
 ```kotlin
-DeeplinkSDK.getInstance().track(
-    event = "purchase",
-    properties = mapOf("amount" to 49.99, "currency" to "USD")
-)
+DeeplinkSDK.track("purchase", mapOf(
+    "amount" to 49.99,
+    "currency" to "USD"
+))
+
+DeeplinkSDK.track("signup")
 ```
 
 ---
@@ -190,7 +237,9 @@ DeeplinkSDK.getInstance().track(
 
 The SDKs communicate with the [Deeplink AI Backend](https://github.com/parth0072/deeplink_BE).
 
-| SDK call | Backend endpoint |
-|----------|-----------------|
-| `initialize()` | `POST /sdk/init` |
-| `track(event:)` | `POST /api/events` |
+| SDK call | Backend endpoint | Description |
+|----------|-----------------|-------------|
+| `configure()` | — | Stores config locally |
+| `getInitData()` | `POST /sdk/init` | Deferred deep link fingerprint match |
+| `handleIncomingURL()` / `handleIntent()` | — | Parses URL/intent locally |
+| `track()` | `POST /api/events` | Custom event tracking |
