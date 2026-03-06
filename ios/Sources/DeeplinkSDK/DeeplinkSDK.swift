@@ -88,6 +88,59 @@ public final class DeeplinkSDK {
         }
     }
 
+    /// Create a deep link programmatically.
+    ///
+    /// The `params` dictionary is stored as link metadata and returned by `getInitData()`
+    /// when the recipient opens the app, letting you pass arbitrary data through the link.
+    ///
+    /// ```swift
+    /// DeeplinkSDK.createLink(
+    ///     destination: "https://yourapp.com/product/123",
+    ///     params: ["product_id": "123", "promo": "launch10"],
+    ///     utmCampaign: "launch"
+    /// ) { result, error in
+    ///     guard let result = result else { return }
+    ///     share(result.url)
+    /// }
+    /// ```
+    public static func createLink(
+        destination: String,
+        params: [String: String] = [:],
+        iosUrl: String? = nil,
+        androidUrl: String? = nil,
+        alias: String? = nil,
+        title: String? = nil,
+        description: String? = nil,
+        utmSource: String? = nil,
+        utmMedium: String? = nil,
+        utmCampaign: String? = nil,
+        expiresAt: String? = nil,
+        completion: @escaping (CreatedLink?, Error?) -> Void
+    ) {
+        guard let sdk = shared else {
+            assertionFailure("DeeplinkSDK.configure() must be called first")
+            completion(nil, nil)
+            return
+        }
+        sdk.apiClient.createLink(
+            destination: destination,
+            params: params,
+            iosUrl: iosUrl,
+            androidUrl: androidUrl,
+            alias: alias,
+            title: title,
+            description: description,
+            utmSource: utmSource,
+            utmMedium: utmMedium,
+            utmCampaign: utmCampaign,
+            expiresAt: expiresAt
+        ) { result, error in
+            DispatchQueue.main.async {
+                completion(result, error)
+            }
+        }
+    }
+
     /// Track a custom event. Properties values must be JSON-serialisable types
     /// (String, Int, Double, Bool).
     ///

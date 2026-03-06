@@ -85,6 +85,59 @@ object DeeplinkSDK {
     }
 
     /**
+     * Create a deep link programmatically.
+     *
+     * The [params] map is stored as link metadata and returned by [getInitData] when the
+     * recipient opens the app, letting you pass arbitrary data through the link.
+     *
+     * ```kotlin
+     * DeeplinkSDK.createLink(
+     *     destination = "https://yourapp.com/product/123",
+     *     params = mapOf("product_id" to "123", "promo" to "launch10"),
+     *     utmCampaign = "launch"
+     * ) { result ->
+     *     result?.let { shareLink(it.url) }
+     * }
+     * ```
+     *
+     * @param callback Invoked on the **main thread** with [CreatedLink] or null on failure.
+     */
+    fun createLink(
+        destination: String,
+        params: Map<String, String> = emptyMap(),
+        iosUrl: String? = null,
+        androidUrl: String? = null,
+        alias: String? = null,
+        title: String? = null,
+        description: String? = null,
+        utmSource: String? = null,
+        utmMedium: String? = null,
+        utmCampaign: String? = null,
+        expiresAt: String? = null,
+        callback: (CreatedLink?) -> Unit,
+    ) {
+        val cfg = requireConfig()
+        ApiClient.createLink(
+            config = cfg,
+            destination = destination,
+            params = params,
+            iosUrl = iosUrl,
+            androidUrl = androidUrl,
+            alias = alias,
+            title = title,
+            description = description,
+            utmSource = utmSource,
+            utmMedium = utmMedium,
+            utmCampaign = utmCampaign,
+            expiresAt = expiresAt,
+        ) { result ->
+            android.os.Handler(android.os.Looper.getMainLooper()).post {
+                callback(result)
+            }
+        }
+    }
+
+    /**
      * Track a custom event with optional properties.
      *
      * ```kotlin

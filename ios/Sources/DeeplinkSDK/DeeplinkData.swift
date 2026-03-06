@@ -20,7 +20,23 @@ public struct DeeplinkData {
     public let creativeId: String?
 }
 
+/// Result returned after successfully creating a deep link via the SDK.
+public struct CreatedLink {
+    /// The full short URL (e.g. `https://dl.yourapp.com/abc123`).
+    public let url: String
+    /// The short alias component (e.g. `abc123`).
+    public let alias: String
+    /// The server-assigned link UUID.
+    public let linkId: String
+}
+
 // MARK: - Internal Codable representation
+
+struct SDKCreateLinkResponse: Decodable {
+    let url: String
+    let alias: String
+    let linkId: String
+}
 
 struct SDKInitResponse: Decodable {
     let matched: Bool

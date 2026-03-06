@@ -72,6 +72,67 @@ internal object ApiClient {
         }.start()
     }
 
+    fun createLink(
+        config: DeeplinkConfig,
+        destination: String,
+        params: Map<String, String>,
+        iosUrl: String? = null,
+        androidUrl: String? = null,
+        alias: String? = null,
+        title: String? = null,
+        description: String? = null,
+        utmSource: String? = null,
+        utmMedium: String? = null,
+        utmCampaign: String? = null,
+        expiresAt: String? = null,
+        callback: (CreatedLink?) -> Unit,
+    ) {
+        Thread {
+            try {
+                val url = URL("${config.apiBaseUrl}/sdk/link")
+                val conn = url.openConnection() as HttpURLConnection
+                conn.requestMethod = "POST"
+                conn.setRequestProperty("Content-Type", "application/json")
+                conn.doOutput = true
+                conn.connectTimeout = 15_000
+                conn.readTimeout = 15_000
+
+                val body = JSONObject().apply {
+                    put("api_key", config.apiKey)
+                    put("destination_url", destination)
+                    if (params.isNotEmpty()) put("params", JSONObject(params))
+                    iosUrl?.let { put("ios_url", it) }
+                    androidUrl?.let { put("android_url", it) }
+                    alias?.let { put("alias", it) }
+                    title?.let { put("title", it) }
+                    description?.let { put("description", it) }
+                    utmSource?.let { put("utm_source", it) }
+                    utmMedium?.let { put("utm_medium", it) }
+                    utmCampaign?.let { put("utm_campaign", it) }
+                    expiresAt?.let { put("expires_at", it) }
+                }.toString()
+
+                OutputStreamWriter(conn.outputStream).use { it.write(body) }
+
+                if (conn.responseCode !in 200..299) {
+                    callback(null)
+                    return@Thread
+                }
+
+                val json = JSONObject(conn.inputStream.bufferedReader().readText())
+                callback(
+                    CreatedLink(
+                        url = json.getString("url"),
+                        alias = json.getString("alias"),
+                        linkId = json.getString("link_id"),
+                    )
+                )
+            } catch (e: Exception) {
+                callback(null)
+            }
+        }.start()
+    }
+
     fun trackEvent(config: DeeplinkConfig, name: String, properties: Map<String, Any>, sessionId: String) {
         Thread {
             try {

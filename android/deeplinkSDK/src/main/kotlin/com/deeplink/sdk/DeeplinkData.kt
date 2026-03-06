@@ -22,6 +22,18 @@ data class DeeplinkData(
     val creativeId: String? = null,
 )
 
+/**
+ * Result returned after successfully creating a deep link via the SDK.
+ * @property url Full short URL (e.g. `https://dl.yourapp.com/abc123`).
+ * @property alias Short alias component (e.g. `abc123`).
+ * @property linkId Server-assigned link UUID.
+ */
+data class CreatedLink(
+    val url: String,
+    val alias: String,
+    val linkId: String,
+)
+
 /** Parsed incoming Android App Link or custom scheme URL. */
 data class IncomingLink(
     val url: android.net.Uri,

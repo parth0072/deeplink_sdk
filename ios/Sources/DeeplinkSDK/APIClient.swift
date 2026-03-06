@@ -44,6 +44,65 @@ final class APIClient {
         task.resume()
     }
 
+    /// POST /sdk/link — create a deep link programmatically and get back its short URL.
+    func createLink(
+        destination: String,
+        params: [String: String],
+        iosUrl: String? = nil,
+        androidUrl: String? = nil,
+        alias: String? = nil,
+        title: String? = nil,
+        description: String? = nil,
+        utmSource: String? = nil,
+        utmMedium: String? = nil,
+        utmCampaign: String? = nil,
+        expiresAt: String? = nil,
+        completion: @escaping (CreatedLink?, Error?) -> Void
+    ) {
+        var url = config.apiBaseURL
+        url.appendPathComponent("sdk/link")
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.timeoutInterval = 15
+
+        var body: [String: Any] = [
+            "api_key": config.apiKey,
+            "destination_url": destination,
+        ]
+        if !params.isEmpty { body["params"] = params }
+        if let v = iosUrl        { body["ios_url"] = v }
+        if let v = androidUrl    { body["android_url"] = v }
+        if let v = alias         { body["alias"] = v }
+        if let v = title         { body["title"] = v }
+        if let v = description   { body["description"] = v }
+        if let v = utmSource     { body["utm_source"] = v }
+        if let v = utmMedium     { body["utm_medium"] = v }
+        if let v = utmCampaign   { body["utm_campaign"] = v }
+        if let v = expiresAt     { body["expires_at"] = v }
+        request.httpBody = try? JSONSerialization.data(withJSONObject: body)
+
+        let task = session.dataTask(with: request) { data, response, error in
+            if let error = error {
+                completion(nil, error)
+                return
+            }
+            guard let data = data else {
+                completion(nil, URLError(.badServerResponse))
+                return
+            }
+            let decoder = JSONDecoder()
+            decoder.keyDecodingStrategy = .convertFromSnakeCase
+            guard let parsed = try? decoder.decode(SDKCreateLinkResponse.self, from: data) else {
+                completion(nil, URLError(.cannotParseResponse))
+                return
+            }
+            completion(CreatedLink(url: parsed.url, alias: parsed.alias, linkId: parsed.linkId), nil)
+        }
+        task.resume()
+    }
+
     /// POST /api/events — track a custom event.
     func trackEvent(name: String, properties: [String: Any], sessionId: String, completion: ((Bool) -> Void)? = nil) {
         var url = config.apiBaseURL
