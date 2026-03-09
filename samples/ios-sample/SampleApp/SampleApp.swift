@@ -8,8 +8,8 @@ struct SampleApp: App {
         // ── Step 1: Configure the SDK ─────────────────────────────────────────
         // Call once on launch. Replace with your real API key and domain.
         Deeplink.configure(
-            apiKey: "YOUR_API_KEY",
-            domain: "dl.yourapp.com"
+            apiKey: "7f9d682990f7b0d1502906357a35cd5f886293f8cf2377d3",
+            domain: "https://deeplinkbe-production-5e4b.up.railway.app"
         )
 
         // ── Step 2: Fetch deferred deep link on first install ─────────────────
