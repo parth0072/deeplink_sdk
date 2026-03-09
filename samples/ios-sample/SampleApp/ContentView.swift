@@ -13,7 +13,7 @@ struct ContentView: View {
             List {
 
                 // ── Deferred Deep Link ────────────────────────────────────────
-                Section("Deferred Deep Link") {
+                Section(header: Text("Deferred Deep Link")) {
                     Button {
                         append("Fetching init data…")
                         isFetching = true
@@ -46,7 +46,7 @@ struct ContentView: View {
                 }
 
                 // ── Create Link ───────────────────────────────────────────────
-                Section("Create Link") {
+                Section(header: Text("Create Link")) {
                     Button {
                         append("Creating link…")
                         isCreating = true
@@ -82,8 +82,8 @@ struct ContentView: View {
                     if !createdLinkURL.isEmpty {
                         HStack {
                             Text(createdLinkURL)
-                                .font(.caption.monospaced())
-                                .foregroundStyle(.secondary)
+                                .font(.system(size: 11, design: .monospaced))
+                                .foregroundColor(.secondary)
                                 .lineLimit(1)
                                 .truncationMode(.middle)
                             Spacer()
@@ -99,7 +99,7 @@ struct ContentView: View {
                 }
 
                 // ── Event Tracking ────────────────────────────────────────────
-                Section("Event Tracking") {
+                Section(header: Text("Event Tracking")) {
                     Button {
                         Deeplink.track("button_tapped", properties: [
                             "screen": "home",
@@ -134,8 +134,8 @@ struct ContentView: View {
                     VStack(alignment: .leading, spacing: 4) {
                         ForEach(log.reversed(), id: \.self) { line in
                             Text(line)
-                                .font(.caption.monospaced())
-                                .foregroundStyle(
+                                .font(.system(size: 11, design: .monospaced))
+                                .foregroundColor(
                                     line.hasPrefix("❌") ? Color.red :
                                     line.hasPrefix("✅") ? Color.green :
                                     line.hasPrefix("📊") ? Color.blue :
