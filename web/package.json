@@ -1,0 +1,29 @@
+{
+  "name": "@deeplink/web",
+  "version": "1.0.0",
+  "description": "Deeplink Web SDK — browser fingerprinting, deferred deep linking, link creation, and event tracking",
+  "main": "dist/deeplink.cjs.js",
+  "module": "dist/deeplink.esm.js",
+  "browser": "dist/deeplink.min.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/deeplink.esm.js",
+      "require": "./dist/deeplink.cjs.js",
+      "browser": "./dist/deeplink.min.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "scripts": {
+    "build": "tsc && npm run bundle",
+    "bundle": "node build.mjs",
+    "dev": "tsc --watch"
+  },
+  "devDependencies": {
+    "typescript": "^5.3.0",
+    "esbuild": "^0.20.0"
+  },
+  "keywords": ["deeplink", "deep-link", "deferred-deeplink", "branch", "browser", "web"],
+  "license": "MIT",
+  "sideEffects": false
+}

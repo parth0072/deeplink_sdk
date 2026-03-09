@@ -1,0 +1,20 @@
+name: deeplink_sdk
+description: Deeplink SDK for Flutter — deferred deep linking, link creation, and event tracking.
+version: 1.0.0
+homepage: https://github.com/parth0072/deeplink_sdk
+
+environment:
+  sdk: ">=3.0.0 <4.0.0"
+  flutter: ">=3.10.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  http: ^1.2.0
+  shared_preferences: ^2.2.0
+  uuid: ^4.3.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^3.0.0
