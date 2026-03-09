@@ -6,7 +6,7 @@ package com.deeplink.sdk
  * @param apiKey Your app API key from the Deeplink admin panel.
  * @param domain The base domain of your Deeplink server (e.g. "dl.yourapp.com").
  */
-data class DeeplinkConfig(
+internal data class DeeplinkConfig(
     val apiKey: String,
     val domain: String,
 ) {

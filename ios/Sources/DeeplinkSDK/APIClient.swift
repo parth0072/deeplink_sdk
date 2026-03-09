@@ -1,6 +1,6 @@
 import Foundation
 
-final class APIClient {
+internal final class APIClient {
     private let config: DeeplinkConfig
     private let session: URLSession
 
@@ -9,42 +9,20 @@ final class APIClient {
         self.session = URLSession(configuration: .default)
     }
 
-    /// POST /sdk/init — fetch deferred deep link data on first launch.
+    // MARK: - SDK Endpoints
+
     func fetchInitData(completion: @escaping (DeeplinkData?) -> Void) {
-        var url = config.apiBaseURL
-        url.appendPathComponent("sdk/init")
-
-        var request = URLRequest(url: url)
-        request.httpMethod = "POST"
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-
-        let body: [String: String] = [
+        post("/sdk/init", body: [
             "api_key": config.apiKey,
             "user_agent": userAgent(),
-        ]
-        request.httpBody = try? JSONEncoder().encode(body)
-
-        let task = session.dataTask(with: request) { data, _, error in
-            guard error == nil, let data = data else {
-                completion(nil)
-                return
+        ]) { (response: SDKInitResponse?) in
+            guard let response, response.matched, let data = response.data else {
+                completion(nil); return
             }
-            let decoder = JSONDecoder()
-            decoder.keyDecodingStrategy = .convertFromSnakeCase
-            guard
-                let response = try? decoder.decode(SDKInitResponse.self, from: data),
-                response.matched,
-                let linkData = response.data
-            else {
-                completion(nil)
-                return
-            }
-            completion(linkData.toDeeplinkData())
+            completion(data.toDeeplinkData())
         }
-        task.resume()
     }
 
-    /// POST /sdk/link — create a deep link programmatically and get back its short URL.
     func createLink(
         destination: String,
         params: [String: String],
@@ -59,83 +37,74 @@ final class APIClient {
         expiresAt: String? = nil,
         completion: @escaping (CreatedLink?, Error?) -> Void
     ) {
-        var url = config.apiBaseURL
-        url.appendPathComponent("sdk/link")
-
-        var request = URLRequest(url: url)
-        request.httpMethod = "POST"
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.timeoutInterval = 15
-
         var body: [String: Any] = [
             "api_key": config.apiKey,
             "destination_url": destination,
         ]
-        if !params.isEmpty { body["params"] = params }
-        if let v = iosUrl        { body["ios_url"] = v }
-        if let v = androidUrl    { body["android_url"] = v }
-        if let v = alias         { body["alias"] = v }
-        if let v = title         { body["title"] = v }
-        if let v = description   { body["description"] = v }
-        if let v = utmSource     { body["utm_source"] = v }
-        if let v = utmMedium     { body["utm_medium"] = v }
-        if let v = utmCampaign   { body["utm_campaign"] = v }
-        if let v = expiresAt     { body["expires_at"] = v }
-        request.httpBody = try? JSONSerialization.data(withJSONObject: body)
+        if !params.isEmpty     { body["params"]       = params }
+        if let v = iosUrl      { body["ios_url"]      = v }
+        if let v = androidUrl  { body["android_url"]  = v }
+        if let v = alias       { body["alias"]        = v }
+        if let v = title       { body["title"]        = v }
+        if let v = description { body["description"]  = v }
+        if let v = utmSource   { body["utm_source"]   = v }
+        if let v = utmMedium   { body["utm_medium"]   = v }
+        if let v = utmCampaign { body["utm_campaign"] = v }
+        if let v = expiresAt   { body["expires_at"]   = v }
 
-        let task = session.dataTask(with: request) { data, response, error in
-            if let error = error {
-                completion(nil, error)
-                return
-            }
-            guard let data = data else {
-                completion(nil, URLError(.badServerResponse))
-                return
-            }
-            let decoder = JSONDecoder()
-            decoder.keyDecodingStrategy = .convertFromSnakeCase
-            guard let parsed = try? decoder.decode(SDKCreateLinkResponse.self, from: data) else {
-                completion(nil, URLError(.cannotParseResponse))
-                return
+        post("/sdk/link", body: body) { (parsed: SDKCreateLinkResponse?) in
+            guard let parsed else {
+                completion(nil, URLError(.cannotParseResponse)); return
             }
             completion(CreatedLink(url: parsed.url, alias: parsed.alias, linkId: parsed.linkId), nil)
         }
-        task.resume()
     }
 
-    /// POST /api/events — track a custom event.
     func trackEvent(name: String, properties: [String: Any], sessionId: String, completion: ((Bool) -> Void)? = nil) {
-        var url = config.apiBaseURL
-        url.appendPathComponent("api/events")
-
-        var request = URLRequest(url: url)
-        request.httpMethod = "POST"
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-
         var body: [String: Any] = [
             "api_key": config.apiKey,
             "name": name,
             "session_id": sessionId,
         ]
-        if !properties.isEmpty {
-            body["properties"] = properties
-        }
-        request.httpBody = try? JSONSerialization.data(withJSONObject: body)
+        if !properties.isEmpty { body["properties"] = properties }
+        post("/api/events", body: body) { (_: EmptyResponse?) in completion?(true) }
+    }
 
-        let task = session.dataTask(with: request) { _, response, _ in
-            let ok = (response as? HTTPURLResponse).map { (200...299).contains($0.statusCode) } ?? false
-            completion?(ok)
-        }
-        task.resume()
+    // MARK: - Common HTTP helper
+
+    private func post<T: Decodable>(_ path: String, body: [String: Any], completion: @escaping (T?) -> Void) {
+        guard
+            let url = URL(string: config.apiBaseURL.absoluteString + path),
+            let bodyData = try? JSONSerialization.data(withJSONObject: body)
+        else { completion(nil); return }
+
+        var req = URLRequest(url: url, timeoutInterval: 15)
+        req.httpMethod = "POST"
+        req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        req.httpBody = bodyData
+
+        session.dataTask(with: req) { data, response, _ in
+            guard
+                let data,
+                let http = response as? HTTPURLResponse,
+                (200...299).contains(http.statusCode)
+            else { completion(nil); return }
+
+            let decoder = JSONDecoder()
+            decoder.keyDecodingStrategy = .convertFromSnakeCase
+            completion(try? decoder.decode(T.self, from: data))
+        }.resume()
     }
 
     // MARK: - Helpers
 
     private func userAgent() -> String {
         let info = Bundle.main.infoDictionary
-        let appName = info?["CFBundleName"] as? String ?? "App"
+        let appName    = info?["CFBundleName"] as? String ?? "App"
         let appVersion = info?["CFBundleShortVersionString"] as? String ?? "1.0"
         let os = "iOS \(ProcessInfo.processInfo.operatingSystemVersionString)"
         return "\(appName)/\(appVersion) \(os)"
     }
 }
+
+private struct EmptyResponse: Decodable {}
