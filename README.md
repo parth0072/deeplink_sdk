@@ -1,35 +1,27 @@
-# Deeplink AI — Mobile SDKs
+# Deeplink AI — SDKs
 
-Native mobile SDKs for the Deeplink AI platform. Handles deferred deep linking, click attribution, and custom event tracking.
+Multi-platform SDKs for the Deeplink AI platform. Handles deferred deep linking, click attribution, link creation, and custom event tracking.
+
+| SDK | Language | Use case |
+|-----|----------|----------|
+| [iOS](#ios-sdk) | Swift | Native iOS apps |
+| [Android](#android-sdk) | Kotlin | Native Android apps |
+| [Flutter](#flutter-sdk) | Dart | Cross-platform Flutter apps |
+| [Node.js](#nodejs-sdk) | TypeScript | Server-side link creation + analytics |
+| [Web](#web-sdk) | TypeScript / JS | Browser fingerprinting + web tracking |
 
 ---
 
 ## Repository Structure
 
 ```
-├── ios/                          # iOS SDK
-│   ├── Package.swift             # SPM manifest (binary target)
-│   ├── DeeplinkSDK.xcframework/  # Pre-built XCFramework (device + simulator)
-│   ├── DeeplinkSDK.xcframework.zip         # Zipped for GitHub Release hosting
-│   ├── DeeplinkSDK.xcframework.zip.sha256  # Checksum for SPM url+checksum target
-│   ├── Sources/DeeplinkSDK/      # Source (reference / rebuild only)
-│   │   ├── DeeplinkSDK.swift     # Main entry point (class: Deeplink)
-│   │   ├── APIClient.swift       # HTTP client
-│   │   ├── DeeplinkData.swift    # Data models
-│   │   ├── DeeplinkConfig.swift  # Config
-│   │   └── LinkHandler.swift     # URL parsing + IncomingLink model
-│   └── scripts/
-│       └── build-xcframework.sh  # Rebuild the XCFramework from source
-└── android/                      # Android SDK (Kotlin Library)
-    ├── build.gradle
-    └── deeplinkSDK/
-        └── src/main/kotlin/com/deeplink/sdk/
-            ├── DeeplinkSDK.kt    # Main entry point
-            ├── ApiClient.kt      # HTTP client
-            ├── DeeplinkData.kt   # Data models
-            ├── DeeplinkConfig.kt # Config
-            ├── LinkHandler.kt    # Intent parsing
-            └── IncomingLink.kt   # Parsed link model
+├── ios/                          # iOS SDK (Swift, XCFramework)
+├── android/                      # Android SDK (Kotlin Library)
+├── flutter/                      # Flutter SDK (Dart, pure HTTP)
+├── nodejs/                       # Node.js SDK (TypeScript)
+├── web/                          # Web SDK (TypeScript, CDN + ESM)
+└── samples/
+    └── ios-sample/               # iOS sample app (SwiftUI)
 ```
 
 ---
@@ -291,3 +283,152 @@ The SDKs communicate with the [Deeplink AI Backend](https://github.com/parth0072
 | `handleIncomingURL()` / `handleIntent()` | — | Parses URL/intent locally |
 | `createLink()` | `POST /sdk/link` | Create a short deep link from the app |
 | `track()` | `POST /api/events` | Custom event tracking |
+
+---
+
+## Flutter SDK
+
+### Requirements
+- Flutter 3.10+
+- Dart 3.0+
+
+### Installation
+
+```yaml
+dependencies:
+  deeplink_sdk:
+    git:
+      url: https://github.com/parth0072/deeplink_sdk.git
+      path: flutter
+```
+
+### Setup
+
+```dart
+// main.dart
+import 'package:deeplink_sdk/deeplink_sdk.dart';
+
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await Deeplink.configure(
+    apiKey: 'your-api-key',
+    domain: 'https://dl.yourapp.com',
+  );
+  runApp(const MyApp());
+}
+```
+
+### Deferred Deep Linking
+
+```dart
+final data = await Deeplink.getInitData();
+if (data != null) {
+  final productId = data.metadata['product_id'];
+  // Navigate to the correct screen
+}
+```
+
+### Create a Link
+
+```dart
+final link = await Deeplink.createLink(
+  destinationUrl: 'https://yourapp.com/product/123',
+  iosUrl: 'myapp://product/123',
+  androidUrl: 'myapp://product/123',
+  params: {'product_id': '123'},
+  utmCampaign: 'share',
+);
+Share.share(link!.url);
+```
+
+### Event Tracking
+
+```dart
+await Deeplink.track('purchase', {'amount': 49.99, 'currency': 'USD'});
+await Deeplink.track('signup');
+```
+
+---
+
+## Node.js SDK
+
+### Requirements
+- Node.js 18+ (uses built-in `fetch`)
+
+### Installation
+
+```bash
+npm install @deeplink/node
+```
+
+### Usage
+
+```ts
+import { DeeplinkClient } from '@deeplink/node';
+
+const client = new DeeplinkClient({
+  apiKey: 'your-app-api-key',
+  baseUrl: 'https://dl.yourapp.com',
+});
+
+// Create a link
+const link = await client.createLink({
+  destinationUrl: 'https://yourapp.com/product/123',
+  iosUrl: 'myapp://product/123',
+  androidUrl: 'myapp://product/123',
+  params: { product_id: '123' },
+  utmSource: 'email',
+  utmCampaign: 'spring-launch',
+});
+console.log(link.url); // https://dl.yourapp.com/abc123
+
+// Track a server-side event
+await client.track('purchase', { amount: 49.99, currency: 'USD' });
+
+// Get analytics
+const stats = await client.getAnalytics('link-id', { from: '2024-01-01', to: '2024-01-31' });
+```
+
+---
+
+## Web SDK
+
+### Via CDN
+
+```html
+<script src="https://unpkg.com/@deeplink/web/dist/deeplink.min.js"></script>
+<script>
+  Deeplink.configure({ apiKey: 'your-key', domain: 'https://dl.yourapp.com' });
+  Deeplink.track('page_view', { page: location.pathname });
+</script>
+```
+
+### Via npm
+
+```bash
+npm install @deeplink/web
+```
+
+```ts
+import Deeplink from '@deeplink/web';
+
+Deeplink.configure({ apiKey: 'your-key', domain: 'https://dl.yourapp.com' });
+
+// Deferred deep link (personalise landing page based on what link brought the visitor)
+const data = await Deeplink.getInitData();
+if (data?.metadata?.promo) showPromo(data.metadata.promo);
+
+// Create a share link from the browser
+const link = await Deeplink.createLink({
+  destinationUrl: 'https://yourapp.com/product/123',
+  iosUrl: 'myapp://product/123',
+  params: { product_id: '123' },
+});
+navigator.clipboard.writeText(link.url);
+
+// Track events
+await Deeplink.track('cta_click', { button: 'download' });
+```
+
+The Web SDK also auto-captures UTM parameters from the URL on `configure()` and stores them in `sessionStorage` for attribution.
+

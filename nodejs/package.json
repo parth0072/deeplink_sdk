@@ -1,0 +1,26 @@
+{
+  "name": "@deeplink/node",
+  "version": "1.0.0",
+  "description": "Deeplink SDK for Node.js — server-side link creation, event tracking, and analytics",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "require": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "devDependencies": {
+    "typescript": "^5.3.0"
+  },
+  "keywords": ["deeplink", "deep-link", "deferred-deeplink", "branch"],
+  "license": "MIT"
+}
