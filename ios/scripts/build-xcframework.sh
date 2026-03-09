@@ -21,6 +21,33 @@ rm -rf "$OUT_DIR/DeeplinkSDK.xcframework" "$OUT_DIR/archives"
 mkdir -p "$OUT_DIR/archives/ios-device"
 mkdir -p "$OUT_DIR/archives/ios-simulator"
 
+# ── Temporarily use source-based Package.swift during build ──────────────
+# The distribution Package.swift uses .binaryTarget which requires the
+# xcframework to already exist — swap it out for the build, then restore.
+PACKAGE_SWIFT="$OUT_DIR/Package.swift"
+PACKAGE_BACKUP="$OUT_DIR/Package.swift.bak"
+cp "$PACKAGE_SWIFT" "$PACKAGE_BACKUP"
+
+cat > "$PACKAGE_SWIFT" << 'PKGEOF'
+// swift-tools-version: 5.9
+import PackageDescription
+
+let package = Package(
+    name: "DeeplinkSDK",
+    platforms: [ .iOS(.v14) ],
+    products: [
+        .library(name: "DeeplinkSDK", type: .dynamic, targets: ["DeeplinkSDK"]),
+    ],
+    targets: [
+        .target(name: "DeeplinkSDK", path: "Sources/DeeplinkSDK"),
+    ]
+)
+PKGEOF
+
+# Restore distribution Package.swift on exit (success or failure)
+restore_package() { mv "$PACKAGE_BACKUP" "$PACKAGE_SWIFT"; }
+trap restore_package EXIT
+
 # ── Helper: copy .swiftmodule directory into a framework Modules/ dir ──
 inject_modules() {
   local archive_path="$1"
