@@ -5,6 +5,9 @@ internal struct DeeplinkConfig {
     let domain: String
 
     var apiBaseURL: URL {
-        URL(string: "https://\(domain)")!
+        let base = domain.hasPrefix("http://") || domain.hasPrefix("https://")
+            ? domain
+            : "https://\(domain)"
+        return URL(string: base)!
     }
 }

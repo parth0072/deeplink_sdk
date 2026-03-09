@@ -3,7 +3,7 @@ import DeeplinkSDK
 
 struct ContentView: View {
 
-    @State private var log: [String] = ["SDK configured. Ready to test."]
+    @State private var log: [(id: UUID, text: String)] = [(UUID(), "SDK configured. Ready to test.")]
     @State private var createdLinkURL: String = ""
     @State private var isFetching = false
     @State private var isCreating = false
@@ -132,13 +132,13 @@ struct ContentView: View {
                 // ── Log ───────────────────────────────────────────────────────
                 Section {
                     VStack(alignment: .leading, spacing: 4) {
-                        ForEach(log.reversed(), id: \.self) { line in
-                            Text(line)
+                        ForEach(log.reversed(), id: \.id) { entry in
+                            Text(entry.text)
                                 .font(.system(size: 11, design: .monospaced))
                                 .foregroundColor(
-                                    line.hasPrefix("❌") ? Color.red :
-                                    line.hasPrefix("✅") ? Color.green :
-                                    line.hasPrefix("📊") ? Color.blue :
+                                    entry.text.hasPrefix("❌") ? Color.red :
+                                    entry.text.hasPrefix("✅") ? Color.green :
+                                    entry.text.hasPrefix("📊") ? Color.blue :
                                     Color.primary
                                 )
                         }
@@ -148,7 +148,7 @@ struct ContentView: View {
                     HStack {
                         Text("Log")
                         Spacer()
-                        Button("Clear") { log = [] }
+                        Button("Clear") { log = [(UUID(), "Log cleared.")] }
                             .font(.caption)
                     }
                 }
@@ -161,7 +161,7 @@ struct ContentView: View {
 
     private func append(_ message: String) {
         DispatchQueue.main.async {
-            log.append(message)
+            log.append((UUID(), message))
         }
     }
 }
