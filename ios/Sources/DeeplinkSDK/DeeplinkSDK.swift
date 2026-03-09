@@ -4,14 +4,14 @@ import Foundation
 ///
 /// **Setup (AppDelegate / @main):**
 /// ```swift
-/// DeeplinkSDK.configure(apiKey: "your-api-key", domain: "dl.yourapp.com")
+/// Deeplink.configure(apiKey: "your-api-key", domain: "dl.yourapp.com")
 /// ```
 ///
 /// **Handle universal links (SceneDelegate):**
 /// ```swift
 /// func scene(_ scene: UIScene, continue userActivity: NSUserActivity) {
 ///     guard let url = userActivity.webpageURL else { return }
-///     DeeplinkSDK.handleIncomingURL(url) { link in
+///     Deeplink.handleIncomingURL(url) { link in
 ///         // Navigate using link.pathComponents or link.params
 ///     }
 /// }
@@ -19,15 +19,15 @@ import Foundation
 ///
 /// **Deferred deep link (first launch):**
 /// ```swift
-/// DeeplinkSDK.getInitData { data in
+/// Deeplink.getInitData { data in
 ///     guard let data = data else { return }
 ///     // Navigate to data.iosUrl or parse data.destinationUrl
 /// }
 /// ```
-public final class DeeplinkSDK {
+public final class Deeplink {
     // MARK: - Singleton
 
-    private static var shared: DeeplinkSDK?
+    private static var shared: Deeplink?
 
     private let config: DeeplinkConfig
     private let apiClient: APIClient
@@ -46,7 +46,7 @@ public final class DeeplinkSDK {
 
     /// Configure the SDK. Call this once on app launch before any other SDK methods.
     public static func configure(apiKey: String, domain: String) {
-        shared = DeeplinkSDK(config: DeeplinkConfig(apiKey: apiKey, domain: domain))
+        shared = Deeplink(config: DeeplinkConfig(apiKey: apiKey, domain: domain))
     }
 
     /// Handle an incoming URL (universal link or custom URL scheme).
@@ -54,7 +54,7 @@ public final class DeeplinkSDK {
     @discardableResult
     public static func handleIncomingURL(_ url: URL, completion: ((IncomingLink?) -> Void)? = nil) -> IncomingLink? {
         guard let sdk = shared else {
-            assertionFailure("DeeplinkSDK.configure() must be called before handling URLs")
+            assertionFailure("Deeplink.configure() must be called before handling URLs")
             return nil
         }
         let link = sdk.linkHandler.handle(url: url)
@@ -67,7 +67,7 @@ public final class DeeplinkSDK {
     /// Subsequent calls are no-ops unless `force` is true.
     public static func getInitData(force: Bool = false, completion: @escaping (DeeplinkData?) -> Void) {
         guard let sdk = shared else {
-            assertionFailure("DeeplinkSDK.configure() must be called first")
+            assertionFailure("Deeplink.configure() must be called first")
             completion(nil)
             return
         }
@@ -94,7 +94,7 @@ public final class DeeplinkSDK {
     /// when the recipient opens the app, letting you pass arbitrary data through the link.
     ///
     /// ```swift
-    /// DeeplinkSDK.createLink(
+    /// Deeplink.createLink(
     ///     destination: "https://yourapp.com/product/123",
     ///     params: ["product_id": "123", "promo": "launch10"],
     ///     utmCampaign: "launch"
@@ -118,7 +118,7 @@ public final class DeeplinkSDK {
         completion: @escaping (CreatedLink?, Error?) -> Void
     ) {
         guard let sdk = shared else {
-            assertionFailure("DeeplinkSDK.configure() must be called first")
+            assertionFailure("Deeplink.configure() must be called first")
             completion(nil, nil)
             return
         }
@@ -145,11 +145,11 @@ public final class DeeplinkSDK {
     /// (String, Int, Double, Bool).
     ///
     /// ```swift
-    /// DeeplinkSDK.track("purchase", properties: ["amount": 49.99, "currency": "USD"])
+    /// Deeplink.track("purchase", properties: ["amount": 49.99, "currency": "USD"])
     /// ```
     public static func track(_ name: String, properties: [String: Any] = [:]) {
         guard let sdk = shared else {
-            assertionFailure("DeeplinkSDK.configure() must be called first")
+            assertionFailure("Deeplink.configure() must be called first")
             return
         }
         sdk.apiClient.trackEvent(name: name, properties: properties, sessionId: currentSessionId())

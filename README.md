@@ -7,26 +7,29 @@ Native mobile SDKs for the Deeplink AI platform. Handles deferred deep linking, 
 ## Repository Structure
 
 ```
-├── ios/                  # iOS SDK (Swift Package)
-│   ├── Package.swift
-│   └── Sources/
-│       └── DeeplinkSDK/
-│           ├── DeeplinkSDK.swift     # Main entry point
-│           ├── APIClient.swift       # HTTP client
-│           ├── DeeplinkData.swift    # Data models
-│           ├── DeeplinkConfig.swift  # Config
-│           ├── LinkHandler.swift     # URL parsing
-│           └── IncomingLink.swift    # Parsed link model
-└── android/              # Android SDK (Kotlin Library)
+├── ios/                          # iOS SDK
+│   ├── Package.swift             # SPM manifest (binary target)
+│   ├── DeeplinkSDK.xcframework/  # Pre-built XCFramework (device + simulator)
+│   ├── DeeplinkSDK.xcframework.zip         # Zipped for GitHub Release hosting
+│   ├── DeeplinkSDK.xcframework.zip.sha256  # Checksum for SPM url+checksum target
+│   ├── Sources/DeeplinkSDK/      # Source (reference / rebuild only)
+│   │   ├── DeeplinkSDK.swift     # Main entry point (class: Deeplink)
+│   │   ├── APIClient.swift       # HTTP client
+│   │   ├── DeeplinkData.swift    # Data models
+│   │   ├── DeeplinkConfig.swift  # Config
+│   │   └── LinkHandler.swift     # URL parsing + IncomingLink model
+│   └── scripts/
+│       └── build-xcframework.sh  # Rebuild the XCFramework from source
+└── android/                      # Android SDK (Kotlin Library)
     ├── build.gradle
     └── deeplinkSDK/
         └── src/main/kotlin/com/deeplink/sdk/
-            ├── DeeplinkSDK.kt        # Main entry point
-            ├── ApiClient.kt          # HTTP client
-            ├── DeeplinkData.kt       # Data models
-            ├── DeeplinkConfig.kt     # Config
-            ├── LinkHandler.kt        # Intent parsing
-            └── IncomingLink.kt       # Parsed link model
+            ├── DeeplinkSDK.kt    # Main entry point
+            ├── ApiClient.kt      # HTTP client
+            ├── DeeplinkData.kt   # Data models
+            ├── DeeplinkConfig.kt # Config
+            ├── LinkHandler.kt    # Intent parsing
+            └── IncomingLink.kt   # Parsed link model
 ```
 
 ---
@@ -40,9 +43,11 @@ Native mobile SDKs for the Deeplink AI platform. Handles deferred deep linking, 
 
 ### Installation
 
-#### Swift Package Manager
+#### Swift Package Manager (recommended)
 
-In Xcode: **File → Add Package Dependencies** and enter the repository URL, or add to your `Package.swift`:
+The iOS SDK ships as a pre-built **XCFramework binary** — no compilation required on the consumer side.
+
+**In Xcode:** File → Add Package Dependencies, enter the repository URL, or add to your `Package.swift`:
 
 ```swift
 dependencies: [
@@ -50,21 +55,50 @@ dependencies: [
 ]
 ```
 
+The `Package.swift` uses a `.binaryTarget` pointing to the included `DeeplinkSDK.xcframework`, so Xcode links the pre-built binary directly.
+
+#### Hosted SPM (GitHub Release)
+
+For CI/CD or to pin to a specific release, upload `DeeplinkSDK.xcframework.zip` to a GitHub Release and use:
+
+```swift
+.binaryTarget(
+    name: "DeeplinkSDK",
+    url: "https://github.com/parth0072/deeplink_sdk/releases/download/vX.Y.Z/DeeplinkSDK.xcframework.zip",
+    checksum: "<value from DeeplinkSDK.xcframework.zip.sha256>"
+)
+```
+
+#### Rebuilding the XCFramework
+
+If you need to rebuild from source (e.g. after modifying the SDK):
+
+```bash
+cd sdk/ios
+bash scripts/build-xcframework.sh
+```
+
+This produces a fresh `DeeplinkSDK.xcframework` with device (arm64) and simulator (arm64 + x86_64) slices.
+
+---
+
 ### Setup
 
 ```swift
 // AppDelegate.swift or @main App struct
 import DeeplinkSDK
 
-DeeplinkSDK.configure(apiKey: "your-api-key", domain: "dl.yourapp.com")
+Deeplink.configure(apiKey: "your-api-key", domain: "dl.yourapp.com")
 ```
+
+> **Note:** The module is `DeeplinkSDK` (import as usual), but the main class is `Deeplink` to avoid a Swift module/class name collision.
 
 ### Deferred Deep Linking
 
 Call once on first launch (after onboarding) to retrieve the deep link that brought the user to install:
 
 ```swift
-DeeplinkSDK.getInitData { data in
+Deeplink.getInitData { data in
     guard let data = data else { return }
     // data.destinationUrl — fallback URL
     // data.iosUrl         — iOS-specific deep link URL
@@ -75,10 +109,10 @@ DeeplinkSDK.getInitData { data in
 }
 
 // Force re-fetch (e.g. for testing)
-DeeplinkSDK.getInitData(force: true) { data in ... }
+Deeplink.getInitData(force: true) { data in ... }
 
 // Reset fetched flag
-DeeplinkSDK.resetInitState()
+Deeplink.resetInitState()
 ```
 
 ### Universal Links (iOS 14+)
@@ -88,7 +122,7 @@ In `SceneDelegate.swift`:
 ```swift
 func scene(_ scene: UIScene, continue userActivity: NSUserActivity) {
     guard let url = userActivity.webpageURL else { return }
-    DeeplinkSDK.handleIncomingURL(url) { link in
+    Deeplink.handleIncomingURL(url) { link in
         guard let link = link else { return }
         // link.pathComponents — URL path segments
         // link.params         — query parameters [String: String]
@@ -107,15 +141,28 @@ Add the Deeplink AI postback URL to your `Info.plist`:
 <string>https://your-api.example.com/skan/postback</string>
 ```
 
+### Create Links from the SDK
+
+```swift
+Deeplink.createLink(
+    destination: "https://yourapp.com/product/123",
+    params: ["product_id": "123", "promo": "launch10"],
+    utmCampaign: "launch"
+) { result, error in
+    guard let result = result else { return }
+    share(result.url)  // e.g. "https://dl.yourapp.com/abc123"
+}
+```
+
 ### Event Tracking
 
 ```swift
-DeeplinkSDK.track("purchase", properties: [
+Deeplink.track("purchase", properties: [
     "amount": 49.99,
     "currency": "USD"
 ])
 
-DeeplinkSDK.track("signup")
+Deeplink.track("signup")
 ```
 
 ---
@@ -242,4 +289,5 @@ The SDKs communicate with the [Deeplink AI Backend](https://github.com/parth0072
 | `configure()` | — | Stores config locally |
 | `getInitData()` | `POST /sdk/init` | Deferred deep link fingerprint match |
 | `handleIncomingURL()` / `handleIntent()` | — | Parses URL/intent locally |
+| `createLink()` | `POST /sdk/link` | Create a short deep link from the app |
 | `track()` | `POST /api/events` | Custom event tracking |

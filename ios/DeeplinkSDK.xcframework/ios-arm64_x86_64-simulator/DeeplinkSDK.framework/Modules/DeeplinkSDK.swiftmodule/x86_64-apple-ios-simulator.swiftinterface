@@ -1,0 +1,57 @@
+// swift-interface-format-version: 1.0
+// swift-compiler-version: Apple Swift version 6.2 effective-5.10 (swiftlang-6.2.0.19.9 clang-1700.3.19.1)
+// swift-module-flags: -target x86_64-apple-ios14.0-simulator -enable-objc-interop -enable-library-evolution -swift-version 5 -enforce-exclusivity=checked -O -enable-experimental-feature DebugDescriptionMacro -module-name DeeplinkSDK -package-name ios
+// swift-module-flags-ignorable:  -formal-cxx-interoperability-mode=off -interface-compiler-version 6.2
+import Foundation
+import Swift
+import _Concurrency
+import _StringProcessing
+import _SwiftConcurrencyShims
+public struct DeeplinkData {
+  public let linkId: Swift.String
+  public let alias: Swift.String
+  public let iosUrl: Swift.String?
+  public let androidUrl: Swift.String?
+  public let destinationUrl: Swift.String
+  public let utmSource: Swift.String?
+  public let utmMedium: Swift.String?
+  public let utmCampaign: Swift.String?
+  public let utmContent: Swift.String?
+  public let utmTerm: Swift.String?
+  public let metadata: [Swift.String : Swift.String]
+  public let creativeName: Swift.String?
+  public let creativeId: Swift.String?
+}
+public struct CreatedLink {
+  public let url: Swift.String
+  public let alias: Swift.String
+  public let linkId: Swift.String
+}
+@_hasMissingDesignatedInitializers final public class Deeplink {
+  public static func configure(apiKey: Swift.String, domain: Swift.String)
+  #if compiler(>=5.3) && $NonescapableTypes
+  @discardableResult
+  public static func handleIncomingURL(_ url: Foundation.URL, completion: ((DeeplinkSDK.IncomingLink?) -> Swift.Void)? = nil) -> DeeplinkSDK.IncomingLink?
+  #endif
+  #if compiler(>=5.3) && $NonescapableTypes
+  public static func getInitData(force: Swift.Bool = false, completion: @escaping (DeeplinkSDK.DeeplinkData?) -> Swift.Void)
+  #endif
+  #if compiler(>=5.3) && $NonescapableTypes
+  public static func createLink(destination: Swift.String, params: [Swift.String : Swift.String] = [:], iosUrl: Swift.String? = nil, androidUrl: Swift.String? = nil, alias: Swift.String? = nil, title: Swift.String? = nil, description: Swift.String? = nil, utmSource: Swift.String? = nil, utmMedium: Swift.String? = nil, utmCampaign: Swift.String? = nil, expiresAt: Swift.String? = nil, completion: @escaping (DeeplinkSDK.CreatedLink?, (any Swift.Error)?) -> Swift.Void)
+  #endif
+  public static func track(_ name: Swift.String, properties: [Swift.String : Any] = [:])
+  public static func resetInitState()
+  @objc deinit
+}
+public struct IncomingLink {
+  public let url: Foundation.URL
+  public let pathComponents: [Swift.String]
+  public let params: [Swift.String : Swift.String]
+}
+@_hasMissingDesignatedInitializers final public class LinkHandler {
+  final public func canHandle(url: Foundation.URL) -> Swift.Bool
+  #if compiler(>=5.3) && $NonescapableTypes
+  final public func handle(url: Foundation.URL) -> DeeplinkSDK.IncomingLink?
+  #endif
+  @objc deinit
+}

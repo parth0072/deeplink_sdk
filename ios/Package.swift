@@ -5,20 +5,15 @@ let package = Package(
     name: "DeeplinkSDK",
     platforms: [
         .iOS(.v14),
-        .macOS(.v11),
     ],
     products: [
         .library(name: "DeeplinkSDK", targets: ["DeeplinkSDK"]),
     ],
     targets: [
-        .target(
+        // Pre-built XCFramework — rebuild with scripts/build-xcframework.sh
+        .binaryTarget(
             name: "DeeplinkSDK",
-            path: "Sources/DeeplinkSDK"
-        ),
-        .testTarget(
-            name: "DeeplinkSDKTests",
-            dependencies: ["DeeplinkSDK"],
-            path: "Tests/DeeplinkSDKTests"
+            path: "DeeplinkSDK.xcframework"
         ),
     ]
 )
