@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Deeplink Web SDK Sample</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: #f5f5f7;
+      color: #1d1d1f;
+      min-height: 100vh;
+      padding: 24px 16px;
+    }
+
+    h1 {
+      font-size: 22px;
+      font-weight: 700;
+      margin-bottom: 4px;
+      color: #1d1d1f;
+    }
+    .subtitle {
+      font-size: 13px;
+      color: #86868b;
+      margin-bottom: 24px;
+    }
+
+    .section {
+      background: #fff;
+      border-radius: 12px;
+      padding: 16px;
+      margin-bottom: 16px;
+      box-shadow: 0 1px 3px rgba(0,0,0,.08);
+    }
+    .section h2 {
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: .6px;
+      color: #6c63ff;
+      margin-bottom: 12px;
+    }
+
+    .btn {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      width: 100%;
+      padding: 11px 14px;
+      border: none;
+      border-radius: 8px;
+      background: #f5f5f7;
+      color: #1d1d1f;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      text-align: left;
+      transition: background .15s;
+      margin-bottom: 6px;
+    }
+    .btn:last-child { margin-bottom: 0; }
+    .btn:hover { background: #e8e8ed; }
+    .btn:disabled { opacity: .45; cursor: default; }
+    .btn .icon { font-size: 16px; width: 20px; text-align: center; }
+
+    #link-result {
+      display: none;
+      margin-top: 8px;
+      padding: 10px 12px;
+      background: #f0f0f5;
+      border-radius: 8px;
+      font-size: 12px;
+      font-family: 'SF Mono', 'Fira Mono', monospace;
+      word-break: break-all;
+      cursor: pointer;
+    }
+    #link-result:hover { background: #e5e5ea; }
+
+    #log {
+      background: #1e1e1e;
+      border-radius: 12px;
+      padding: 12px 14px;
+      min-height: 160px;
+      max-height: 240px;
+      overflow-y: auto;
+      font-family: 'SF Mono', 'Fira Mono', monospace;
+      font-size: 11px;
+      line-height: 1.6;
+    }
+    .log-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 8px;
+    }
+    .log-header span { font-size: 11px; font-weight: 600; color: #86868b; text-transform: uppercase; letter-spacing: .6px; }
+    .log-header button {
+      background: none; border: none; color: #555; font-size: 11px; cursor: pointer;
+    }
+    .log-line { display: block; }
+    .log-line.ok    { color: #4cd964; }
+    .log-line.err   { color: #ff3b30; }
+    .log-line.info  { color: #5ac8fa; }
+    .log-line.muted { color: #8e8e93; }
+
+    @media (min-width: 600px) {
+      body { max-width: 480px; margin: 0 auto; }
+    }
+  </style>
+</head>
+<body>
+
+  <h1>Deeplink Web SDK</h1>
+  <p class="subtitle">Sample page — open DevTools console for additional output</p>
+
+  <!-- Deferred Deep Link -->
+  <div class="section">
+    <h2>Deferred Deep Link</h2>
+    <button class="btn" id="btn-init">
+      <span class="icon">📡</span> Get Init Data (force)
+    </button>
+    <button class="btn" id="btn-reset">
+      <span class="icon">🔄</span> Reset Init State
+    </button>
+  </div>
+
+  <!-- Create Link -->
+  <div class="section">
+    <h2>Create Link</h2>
+    <button class="btn" id="btn-create">
+      <span class="icon">🔗</span> Create Deep Link
+    </button>
+    <div id="link-result" title="Click to copy"></div>
+  </div>
+
+  <!-- Event Tracking -->
+  <div class="section">
+    <h2>Event Tracking</h2>
+    <button class="btn" id="btn-tap">
+      <span class="icon">👆</span> Track: button_tapped
+    </button>
+    <button class="btn" id="btn-purchase">
+      <span class="icon">🛒</span> Track: purchase
+    </button>
+    <button class="btn" id="btn-signup">
+      <span class="icon">👤</span> Track: signup
+    </button>
+  </div>
+
+  <!-- Log -->
+  <div class="log-header">
+    <span>Log</span>
+    <button onclick="clearLog()">Clear</button>
+  </div>
+  <div id="log"></div>
+
+  <!-- Deeplink Web SDK via local build -->
+  <script src="../../web/dist/deeplink.min.js"></script>
+  <script>
+    // ── Configure ──────────────────────────────────────────────────────────
+    Deeplink.configure({
+      apiKey: '7f9d682990f7b0d1502906357a35cd5f886293f8cf2377d3',
+      domain: 'https://deeplinkbe-production-5e4b.up.railway.app',
+    });
+    appendLog('SDK configured. Ready to test.', 'muted');
+
+    // ── Helpers ────────────────────────────────────────────────────────────
+    function appendLog(msg, type = '') {
+      const el = document.getElementById('log');
+      const line = document.createElement('span');
+      line.className = 'log-line ' + type;
+      line.textContent = msg;
+      el.appendChild(line);
+      el.appendChild(document.createTextNode('\n'));
+      el.scrollTop = el.scrollHeight;
+    }
+
+    function clearLog() {
+      document.getElementById('log').textContent = '';
+    }
+
+    function setLoading(btnId, loading, label, loadingLabel) {
+      const btn = document.getElementById(btnId);
+      btn.disabled = loading;
+      btn.querySelector('.icon').textContent = loading ? '⏳' : btn.dataset.icon;
+      btn.childNodes[btn.childNodes.length - 1].textContent = ' ' + (loading ? loadingLabel : label);
+    }
+
+    // Store original icons
+    document.querySelectorAll('.btn').forEach(btn => {
+      btn.dataset.icon = btn.querySelector('.icon').textContent;
+    });
+
+    // ── Deferred Deep Link ─────────────────────────────────────────────────
+    document.getElementById('btn-init').addEventListener('click', async () => {
+      appendLog('Fetching init data…', 'muted');
+      document.getElementById('btn-init').disabled = true;
+      try {
+        const data = await Deeplink.getInitData({ force: true });
+        if (data) {
+          appendLog('✅ Matched!', 'ok');
+          appendLog('   dest: ' + (data.destinationUrl ?? '—'), 'ok');
+          appendLog('   metadata: ' + JSON.stringify(data.metadata), 'ok');
+        } else {
+          appendLog('⚠️  No match (no click fingerprint found)', 'muted');
+        }
+      } catch (e) {
+        appendLog('❌ Error: ' + e.message, 'err');
+      } finally {
+        document.getElementById('btn-init').disabled = false;
+      }
+    });
+
+    document.getElementById('btn-reset').addEventListener('click', () => {
+      Deeplink.resetInitState();
+      appendLog('🔄 Init state reset — next getInitData() will re-fetch', 'muted');
+    });
+
+    // ── Create Link ────────────────────────────────────────────────────────
+    document.getElementById('btn-create').addEventListener('click', async () => {
+      appendLog('Creating link…', 'muted');
+      document.getElementById('btn-create').disabled = true;
+      const resultEl = document.getElementById('link-result');
+      resultEl.style.display = 'none';
+      try {
+        const link = await Deeplink.createLink({
+          destinationUrl: 'https://yourapp.com/product/123',
+          iosUrl: 'myapp://product/123',
+          androidUrl: 'myapp://product/123',
+          params: { product_id: '123', source: 'web-sample' },
+          title: 'Sample Product',
+          utmSource: 'sample',
+          utmMedium: 'web',
+          utmCampaign: 'sdk-test',
+        });
+        appendLog('✅ Link created: ' + link.url, 'ok');
+        appendLog('   alias: ' + link.alias, 'ok');
+        resultEl.textContent = link.url + ' — click to copy';
+        resultEl.style.display = 'block';
+        resultEl.onclick = () => {
+          navigator.clipboard.writeText(link.url);
+          appendLog('📋 Copied to clipboard', 'info');
+        };
+      } catch (e) {
+        appendLog('❌ Error: ' + e.message, 'err');
+        appendLog('   (Is the backend running and API key correct?)', 'err');
+      } finally {
+        document.getElementById('btn-create').disabled = false;
+      }
+    });
+
+    // ── Event Tracking ─────────────────────────────────────────────────────
+    document.getElementById('btn-tap').addEventListener('click', async () => {
+      await Deeplink.track('button_tapped', { screen: 'home', button: 'cta' });
+      appendLog('📊 Tracked: button_tapped {screen: home, button: cta}', 'info');
+    });
+
+    document.getElementById('btn-purchase').addEventListener('click', async () => {
+      await Deeplink.track('purchase', { amount: 49.99, currency: 'USD' });
+      appendLog('📊 Tracked: purchase {amount: 49.99, currency: USD}', 'info');
+    });
+
+    document.getElementById('btn-signup').addEventListener('click', async () => {
+      await Deeplink.track('signup', { method: 'email' });
+      appendLog('📊 Tracked: signup {method: email}', 'info');
+    });
+  </script>
+</body>
+</html>

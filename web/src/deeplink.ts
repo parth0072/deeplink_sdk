@@ -190,7 +190,7 @@ const Deeplink = {
     try {
       await request<void>(this._baseUrl, this._apiKey, '/api/events', {
         method: 'POST',
-        body: JSON.stringify({ name: event, properties, session_id: sid }),
+        body: JSON.stringify({ api_key: this._apiKey, name: event, properties, session_id: sid }),
       });
     } catch { /* fire-and-forget */ }
   },

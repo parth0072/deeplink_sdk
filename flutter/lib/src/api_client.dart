@@ -115,6 +115,7 @@ class ApiClient {
         'POST',
         '/api/events',
         body: {
+          'api_key': apiKey,
           'name': name,
           'properties': properties,
           'session_id': sessionId,
