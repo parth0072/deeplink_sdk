@@ -139,6 +139,7 @@ struct ContentView: View {
                                     entry.text.hasPrefix("❌") ? Color.red :
                                     entry.text.hasPrefix("✅") ? Color.green :
                                     entry.text.hasPrefix("📊") ? Color.blue :
+                                    entry.text.hasPrefix("🔗") ? Color.purple :
                                     Color.primary
                                 )
                         }
@@ -156,6 +157,23 @@ struct ContentView: View {
             }
             .navigationTitle("Deeplink SDK Sample")
             .navigationBarTitleDisplayMode(.inline)
+            .onOpenURL { url in
+                // Handle incoming URL (custom scheme coda:// or universal link)
+                Deeplink.handleIncomingURL(url) { link in
+                    if let link = link {
+                        append("🔗 App opened from link!")
+                        append("   url: \(url.absoluteString)")
+                        if !link.pathComponents.isEmpty {
+                            append("   path: /\(link.pathComponents.joined(separator: "/"))")
+                        }
+                        if !link.params.isEmpty {
+                            append("   params: \(link.params)")
+                        }
+                    } else {
+                        append("🔗 Opened via URL: \(url.absoluteString)")
+                    }
+                }
+            }
         }
     }
 

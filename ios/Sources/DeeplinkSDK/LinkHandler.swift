@@ -35,17 +35,16 @@ public final class LinkHandler {
 
     /// Returns true if this URL belongs to our deep link domain.
     public func canHandle(url: URL) -> Bool {
-        guard let host = url.host else { return false }
-        return host == config.domain || url.scheme == urlScheme(from: config.domain)
+        let scheme = url.scheme?.lowercased() ?? ""
+        // Custom URL scheme (not http/https) — always a deep link
+        if scheme != "http" && scheme != "https" { return true }
+        // Universal link — host must match our configured domain
+        return url.host == config.apiBaseURL.host
     }
 
     /// Parse an incoming universal link or custom URL scheme link.
     public func handle(url: URL) -> IncomingLink? {
         guard canHandle(url: url) else { return nil }
         return IncomingLink(url: url)
-    }
-
-    private func urlScheme(from domain: String) -> String {
-        domain.components(separatedBy: ".").first ?? domain
     }
 }

@@ -35,15 +35,6 @@ struct SampleApp: App {
     var body: some Scene {
         WindowGroup {
             ContentView()
-                .onOpenURL { url in
-                    // ── Step 3: Handle universal links / custom URL schemes ──
-                    Deeplink.handleIncomingURL(url) { link in
-                        guard let link = link else { return }
-                        print("[Deeplink] Incoming URL: \(url)")
-                        print("  → pathComponents : \(link.pathComponents)")
-                        print("  → params         : \(link.params)")
-                    }
-                }
         }
     }
 }
