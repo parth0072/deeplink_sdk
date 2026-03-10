@@ -123,6 +123,7 @@ export class DeeplinkClient {
     return this.request<void>('/api/events', {
       method: 'POST',
       body: JSON.stringify({
+        api_key: this.apiKey,
         name: event,
         properties,
         session_id: sessionId,
