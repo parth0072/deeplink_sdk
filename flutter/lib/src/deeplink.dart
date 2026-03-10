@@ -159,6 +159,22 @@ class Deeplink {
     );
   }
 
+  // ── Impression tracking ───────────────────────────────────────────────────
+
+  /// Record an impression for a link displayed in-app.
+  ///
+  /// Opening the link URL already records an impression automatically.
+  /// Call this only when you show a deep link inside a banner or share sheet
+  /// without the user actually opening the link URL.
+  ///
+  /// ```dart
+  /// await Deeplink.recordImpression('summer-sale');
+  /// ```
+  static Future<void> recordImpression(String alias) async {
+    _requireConfigured();
+    await _client!.recordImpression(alias: alias);
+  }
+
   // ── Helpers ───────────────────────────────────────────────────────────────
 
   /// Reset the "already fetched" flag (useful for testing).

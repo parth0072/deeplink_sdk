@@ -60,6 +60,17 @@ internal final class APIClient {
         }
     }
 
+    /// Record an impression for a link shown in-app.
+    /// Opening the link URL already auto-records an impression; call this only
+    /// when you display a link inside a banner or share sheet without opening it.
+    func recordImpression(alias: String, completion: ((Bool) -> Void)? = nil) {
+        post("/api/impressions", body: [
+            "api_key": config.apiKey,
+            "link_alias": alias,
+            "platform": "ios",
+        ]) { (_: EmptyResponse?) in completion?(true) }
+    }
+
     func trackEvent(name: String, properties: [String: Any], sessionId: String, completion: ((Bool) -> Void)? = nil) {
         var body: [String: Any] = [
             "api_key": config.apiKey,

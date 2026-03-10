@@ -54,7 +54,7 @@ class ApiClient {
     required String sessionId,
   }) async {
     try {
-      final result = await _request<DeeplinkData>(
+      final result = await _request<DeeplinkData?>(
         'POST',
         '/sdk/init',
         body: {
@@ -63,7 +63,11 @@ class ApiClient {
           'session_id': sessionId,
           'platform': 'flutter',
         },
-        parse: (json) => DeeplinkData.fromJson(json as Map<String, dynamic>),
+        parse: (json) {
+          final map = json as Map<String, dynamic>;
+          if (map['matched'] != true) return null;
+          return DeeplinkData.fromJson(map);
+        },
       );
       return result;
     } catch (_) {
@@ -123,6 +127,25 @@ class ApiClient {
       );
     } catch (_) {
       // Event tracking is fire-and-forget — swallow errors silently
+    }
+  }
+
+  /// Record an impression for a link displayed in-app. Fire-and-forget.
+  /// Opening the link URL already auto-records an impression; call this only
+  /// when you show a link inside a banner or share sheet without the user opening it.
+  Future<void> recordImpression({required String alias}) async {
+    try {
+      await _request<void>(
+        'POST',
+        '/api/impressions',
+        body: {
+          'api_key': apiKey,
+          'link_alias': alias,
+          'platform': 'flutter',
+        },
+      );
+    } catch (_) {
+      // Fire-and-forget — swallow errors silently
     }
   }
 }
