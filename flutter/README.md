@@ -1,10 +1,23 @@
 # Deeplink Flutter SDK
 
-Flutter SDK for deferred deep linking, link creation, and event tracking.
+Cross-platform Flutter SDK for deferred deep linking, link creation, and event tracking. Pure Dart — no platform channels required for core functionality.
+
+← [Back to main SDK docs](../README.md)
+
+---
+
+## Requirements
+
+| | Minimum |
+|-|---------|
+| Flutter | 3.10+ |
+| Dart | 3.0+ |
+
+---
 
 ## Installation
 
-Add to your `pubspec.yaml`:
+Add to `pubspec.yaml`:
 
 ```yaml
 dependencies:
@@ -14,83 +27,72 @@ dependencies:
       path: flutter
 ```
 
+Then run:
+
+```bash
+flutter pub get
+```
+
+---
+
 ## Setup
 
+Call `configure` once in `main()` before `runApp`.
+
 ```dart
-// main.dart
 import 'package:deeplink_sdk/deeplink_sdk.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
   await Deeplink.configure(
-    apiKey: 'your-app-api-key',
+    apiKey: 'your-api-key',
     domain: 'https://dl.yourapp.com',
   );
+
   runApp(const MyApp());
 }
 ```
 
+---
+
 ## Deferred Deep Linking
 
-Call once after the user completes onboarding:
+Fetch the deep link that originally brought the user to install your app. Call once after onboarding completes.
 
 ```dart
 final data = await Deeplink.getInitData();
 if (data != null) {
-  final productId = data.metadata['product_id'];
-  // Navigate to the right screen
+  // data.destinationUrl  — fallback web URL
+  // data.iosUrl          — iOS deep link
+  // data.androidUrl      — Android deep link
+  // data.metadata        — Map<String, dynamic> custom key-value pairs
+  navigateTo(data.androidUrl ?? data.destinationUrl);
 }
+
+// Force re-fetch (e.g. during testing)
+final data = await Deeplink.getInitData(force: true);
+
+// Reset the one-time guard
+await Deeplink.resetInitState();
 ```
+
+---
 
 ## Handle Incoming Links
 
+Parse an incoming URI when the app is opened via a deep link.
+
 ```dart
-// In your MaterialApp.router or onGenerateRoute:
-final link = Deeplink.handleIncomingUri(incomingUri);
+final link = Deeplink.handleIncomingUri(uri);
 if (link != null) {
-  final page = link.pathSegments.firstOrNull;
-  // Navigate based on page + link.params
+  // link.pathSegments — ['product', '123']
+  // link.params       — {'ref': 'email'}
+  context.go('/${link.pathSegments.firstOrNull}');
 }
 ```
 
-## Create a Link
-
-```dart
-final link = await Deeplink.createLink(
-  destinationUrl: 'https://yourapp.com/product/123',
-  iosUrl: 'myapp://product/123',
-  androidUrl: 'myapp://product/123',
-  params: {'product_id': '123', 'promo': 'launch10'},
-  utmSource: 'share_button',
-  utmCampaign: 'launch',
-);
-if (link != null) {
-  Share.share(link.url);
-}
-```
-
-## Track Events
-
-```dart
-await Deeplink.track('purchase', {'amount': 49.99, 'currency': 'USD'});
-await Deeplink.track('signup');
-await Deeplink.track('button_tapped', {'screen': 'home', 'button': 'cta'});
-```
-
-## API
-
-| Method | Description |
-|--------|-------------|
-| `Deeplink.configure(apiKey:, domain:)` | Initialize SDK (call once in `main()`) |
-| `Deeplink.getInitData({force:})` | Fetch deferred deep link on first launch |
-| `Deeplink.handleIncomingUri(uri)` | Parse an incoming deep link URI |
-| `Deeplink.createLink(destinationUrl:, ...)` | Create a short deep link |
-| `Deeplink.track(event, properties)` | Track a custom event |
-| `Deeplink.resetInitState()` | Reset init guard (for testing) |
-
-## Android Setup
-
-Add to `AndroidManifest.xml` to receive App Links:
+### Android — `AndroidManifest.xml`
 
 ```xml
 <intent-filter android:autoVerify="true">
@@ -101,13 +103,71 @@ Add to `AndroidManifest.xml` to receive App Links:
 </intent-filter>
 ```
 
-## iOS Setup
-
-Add to your `Info.plist` for Universal Links:
+### iOS — `Info.plist`
 
 ```xml
 <key>com.apple.developer.associated-domains</key>
 <array>
   <string>applinks:dl.yourapp.com</string>
 </array>
+```
+
+---
+
+## Create Links
+
+Generate short deep links from within the app.
+
+```dart
+final link = await Deeplink.createLink(
+  destinationUrl: 'https://yourapp.com/product/123',
+  iosUrl:         'myapp://product/123',
+  androidUrl:     'myapp://product/123',
+  params:         {'product_id': '123', 'promo': 'launch10'},
+  title:          'Check this out',
+  utmSource:      'share',
+  utmCampaign:    'referral',
+);
+if (link != null) Share.share(link.url);
+```
+
+---
+
+## Event Tracking
+
+```dart
+await Deeplink.track('signup');
+
+await Deeplink.track('purchase', {
+  'amount':   49.99,
+  'currency': 'USD',
+});
+
+await Deeplink.track('button_tapped', {
+  'screen': 'home',
+  'button': 'cta',
+});
+```
+
+---
+
+## API Reference
+
+| Method | Returns | Description |
+|--------|---------|-------------|
+| `Deeplink.configure(apiKey:, domain:)` | `Future<void>` | Initialize SDK |
+| `Deeplink.getInitData({force:})` | `Future<DeeplinkData?>` | Deferred deep link on first launch |
+| `Deeplink.handleIncomingUri(uri)` | `IncomingLink?` | Parse incoming URI |
+| `Deeplink.createLink(destinationUrl:, ...)` | `Future<CreatedLink?>` | Create a short deep link |
+| `Deeplink.track(event, properties)` | `Future<void>` | Track a custom event |
+| `Deeplink.resetInitState()` | `Future<void>` | Reset init guard |
+
+---
+
+## Sample App
+
+[`samples/flutter-sample/`](../samples/flutter-sample/) — full Flutter sample demonstrating every SDK feature.
+
+```bash
+cd samples/flutter-sample && flutter pub get && flutter run
 ```
