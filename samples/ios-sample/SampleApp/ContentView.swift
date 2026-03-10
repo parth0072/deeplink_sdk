@@ -53,7 +53,7 @@ struct ContentView: View {
                         Deeplink.createLink(
                             destination: "https://yourapp.com/product/123",
                             params: ["product_id": "123", "source": "sample-app"],
-                            iosUrl: "coda://product/123",
+                            iosUrl: "myapp://product/123",
                             alias: nil,
                             title: "Sample Product",
                             utmSource: "sample",
