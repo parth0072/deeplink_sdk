@@ -2,6 +2,9 @@ package com.deeplink.sdk
 
 import android.content.Context
 import android.content.Intent
+import android.os.Build
+import java.util.Locale
+import java.util.TimeZone
 
 /**
  * Main entry point for the Deeplink SDK.
@@ -74,7 +77,7 @@ object DeeplinkSDK {
             return
         }
 
-        ApiClient.fetchInitData(cfg) { data ->
+        ApiClient.fetchInitData(cfg, collectDeviceSignals(ctx)) { data ->
             if (data != null) {
                 prefs.edit().putBoolean(PREF_INIT_FETCHED, true).apply()
             }
@@ -189,6 +192,30 @@ object DeeplinkSDK {
         val prefs = ctx.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         return prefs.getString(PREF_SESSION_ID, null) ?: java.util.UUID.randomUUID().toString().also {
             prefs.edit().putString(PREF_SESSION_ID, it).apply()
+        }
+    }
+
+    /**
+     * Collects device signals for improved probabilistic fingerprint matching.
+     * Screen resolution is expressed as CSS-pixel-equivalent to match the web
+     * browser JS value: widthPx × heightPx × densityDpi.
+     */
+    private fun collectDeviceSignals(ctx: Context): Map<String, String?> {
+        return try {
+            val dm = ctx.resources.displayMetrics
+            val dpr = dm.density               // e.g. 3.0 for xxhdpi
+            val w = (dm.widthPixels / dpr).toInt()
+            val h = (dm.heightPixels / dpr).toInt()
+            val dprStr = if (dpr == dpr.toLong().toFloat()) "${dpr.toLong()}" else "$dpr"
+            mapOf(
+                "device_model" to Build.MODEL,
+                "os_version"   to Build.VERSION.RELEASE,
+                "screen_res"   to "${w}x${h}x${dprStr}",
+                "timezone"     to TimeZone.getDefault().id,
+                "language"     to Locale.getDefault().language,
+            )
+        } catch (_: Exception) {
+            emptyMap()
         }
     }
 }

@@ -9,11 +9,21 @@ internal object ApiClient {
 
     // MARK: - SDK Endpoints
 
-    fun fetchInitData(config: DeeplinkConfig, callback: (DeeplinkData?) -> Unit) {
+    /**
+     * @param deviceSignals Optional device fingerprint signals to improve deferred
+     *   deep link matching accuracy. Keys: device_model, os_version, screen_res,
+     *   timezone, language.
+     */
+    fun fetchInitData(
+        config: DeeplinkConfig,
+        deviceSignals: Map<String, String?> = emptyMap(),
+        callback: (DeeplinkData?) -> Unit,
+    ) {
         Thread {
             val body = JSONObject().apply {
                 put("api_key", config.apiKey)
                 put("user_agent", buildUserAgent())
+                deviceSignals.forEach { (k, v) -> if (v != null) put(k, v) }
             }
             val result = post(config, "/sdk/init", body, timeout = 10_000) { json ->
                 if (!json.optBoolean("matched", false)) return@post null

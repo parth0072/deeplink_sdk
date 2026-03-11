@@ -1,4 +1,5 @@
 import Foundation
+import UIKit
 
 internal final class APIClient {
     private let config: DeeplinkConfig
@@ -12,10 +13,18 @@ internal final class APIClient {
     // MARK: - SDK Endpoints
 
     func fetchInitData(completion: @escaping (DeeplinkData?) -> Void) {
-        post("/sdk/init", body: [
+        var body: [String: Any] = [
             "api_key": config.apiKey,
             "user_agent": userAgent(),
-        ]) { (response: SDKInitResponse?) in
+        ]
+        // Device signals for probabilistic fingerprint matching
+        body["device_model"] = deviceModel()
+        body["os_version"]   = UIDevice.current.systemVersion
+        body["screen_res"]   = screenRes()
+        body["timezone"]     = TimeZone.current.identifier
+        body["language"]     = Locale.current.languageCode ?? "en"
+
+        post("/sdk/init", body: body) { (response: SDKInitResponse?) in
             guard let response, response.matched, let data = response.data else {
                 completion(nil); return
             }
@@ -115,6 +124,30 @@ internal final class APIClient {
         let appVersion = info?["CFBundleShortVersionString"] as? String ?? "1.0"
         let os = "iOS \(ProcessInfo.processInfo.operatingSystemVersionString)"
         return "\(appName)/\(appVersion) \(os)"
+    }
+
+    /// Returns the hardware model identifier, e.g. "iPhone15,2".
+    private func deviceModel() -> String {
+        var info = utsname()
+        uname(&info)
+        return withUnsafePointer(to: &info.machine) {
+            $0.withMemoryRebound(to: CChar.self, capacity: 1) { String(cString: $0) }
+        }
+    }
+
+    /// Returns screen resolution as "widthxheightxscale", matching what the web
+    /// browser JS reports via `screen.width + 'x' + screen.height + 'x' + devicePixelRatio`.
+    private func screenRes() -> String {
+        var result = ""
+        let capture = {
+            let s = UIScreen.main
+            let w = Int(s.bounds.width)
+            let h = Int(s.bounds.height)
+            let scale = Int(s.scale)
+            result = "\(w)x\(h)x\(scale)"
+        }
+        if Thread.isMainThread { capture() } else { DispatchQueue.main.sync { capture() } }
+        return result
     }
 }
 
