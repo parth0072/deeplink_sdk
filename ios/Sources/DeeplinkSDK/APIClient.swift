@@ -1,5 +1,6 @@
 import Foundation
 import UIKit
+// Note: WebKit removed — hidden WKWebView canvas collection is unreliable on iOS 17+
 
 internal final class APIClient {
     private let config: DeeplinkConfig
@@ -14,10 +15,21 @@ internal final class APIClient {
 
     func fetchInitData(completion: @escaping (DeeplinkData?) -> Void) {
         var body: [String: Any] = [
-            "api_key": config.apiKey,
+            "api_key":    config.apiKey,
             "user_agent": userAgent(),
         ]
-        // Device signals for probabilistic fingerprint matching
+
+        // Keychain device ID — survives reinstall, deterministic on returning users
+        body["device_id"] = KeychainHelper.getOrCreateDeviceId()
+
+        // IDFV — Apple's own stable per-vendor identifier, no ATT needed.
+        // Resets only if ALL apps from this vendor are removed from the device.
+        // Scores +50 pts → effectively deterministic after first match.
+        if let idfv = UIDevice.current.identifierForVendor?.uuidString {
+            body["idfv"] = idfv
+        }
+
+        // Native device signals for probabilistic scoring
         body["device_model"] = deviceModel()
         body["os_version"]   = UIDevice.current.systemVersion
         body["screen_res"]   = screenRes()
