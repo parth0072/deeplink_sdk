@@ -3,6 +3,7 @@ package com.deeplink.sdk
 import android.content.Context
 import android.content.Intent
 import android.os.Build
+import android.provider.Settings
 import java.util.Locale
 import java.util.TimeZone
 
@@ -196,18 +197,27 @@ object DeeplinkSDK {
     }
 
     /**
-     * Collects device signals for improved probabilistic fingerprint matching.
-     * Screen resolution is expressed as CSS-pixel-equivalent to match the web
-     * browser JS value: widthPx × heightPx × densityDpi.
+     * Collects device signals for fingerprint matching.
+     *
+     * Includes:
+     * - device_id: ANDROID_ID — stable per device + app signing key, no permission needed,
+     *   resets only on factory reset. Used for deterministic matching on reinstall.
+     * - Probabilistic signals: model, OS, screen res, timezone, language.
      */
     private fun collectDeviceSignals(ctx: Context): Map<String, String?> {
         return try {
             val dm = ctx.resources.displayMetrics
-            val dpr = dm.density               // e.g. 3.0 for xxhdpi
+            val dpr = dm.density
             val w = (dm.widthPixels / dpr).toInt()
             val h = (dm.heightPixels / dpr).toInt()
             val dprStr = if (dpr == dpr.toLong().toFloat()) "${dpr.toLong()}" else "$dpr"
+
+            // ANDROID_ID: unique per (device, app signing key). No permission required.
+            // Stable across installs/reinstalls; resets only on factory reset.
+            val androidId = Settings.Secure.getString(ctx.contentResolver, Settings.Secure.ANDROID_ID)
+
             mapOf(
+                "device_id"    to androidId,
                 "device_model" to Build.MODEL,
                 "os_version"   to Build.VERSION.RELEASE,
                 "screen_res"   to "${w}x${h}x${dprStr}",
