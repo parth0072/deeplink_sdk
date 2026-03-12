@@ -1,5 +1,3 @@
-import 'dart:convert';
-import 'dart:io';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:uuid/uuid.dart';
 import 'api_client.dart';
@@ -35,7 +33,7 @@ import 'models.dart';
 /// ```
 class Deeplink {
   static const _keyInitFetched = 'dl_init_fetched';
-  static const _keySessionId = 'dl_session_id';
+  static const _keySessionId   = 'dl_session_id';
 
   static ApiClient? _client;
   static String? _domain;
@@ -69,13 +67,7 @@ class Deeplink {
     final alreadyFetched = prefs.getBool(_keyInitFetched) ?? false;
     if (alreadyFetched && !force) return null;
 
-    final sessionId = await _sessionId();
-    final fingerprint = _buildFingerprint();
-
-    final data = await _client!.fetchInitData(
-      fingerprintHash: fingerprint,
-      sessionId: sessionId,
-    );
+    final data = await _client!.fetchInitData();
 
     if (data != null) {
       await prefs.setBool(_keyInitFetched, true);
@@ -194,21 +186,5 @@ class Deeplink {
     final newId = const Uuid().v4();
     await prefs.setString(_keySessionId, newId);
     return newId;
-  }
-
-  /// Simple deterministic fingerprint for deferred matching.
-  static String? _buildFingerprint() {
-    try {
-      final parts = [
-        Platform.operatingSystem,
-        Platform.operatingSystemVersion,
-        Platform.localeName,
-      ];
-      final raw = parts.join('|');
-      // Return a simple base64 representation (not a cryptographic hash — just a stable ID)
-      return base64Url.encode(utf8.encode(raw));
-    } catch (_) {
-      return null;
-    }
   }
 }

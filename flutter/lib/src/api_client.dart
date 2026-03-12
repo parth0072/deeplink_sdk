@@ -49,19 +49,14 @@ class ApiClient {
     return parse != null ? parse(json) : json as T;
   }
 
-  Future<DeeplinkData?> fetchInitData({
-    required String? fingerprintHash,
-    required String sessionId,
-  }) async {
+  Future<DeeplinkData?> fetchInitData() async {
     try {
       final result = await _request<DeeplinkData?>(
         'POST',
         '/sdk/init',
         body: {
           'api_key': apiKey,
-          'fingerprint_hash': fingerprintHash,
-          'session_id': sessionId,
-          'platform': 'flutter',
+          ..._deviceSignals(),
         },
         parse: (json) {
           final map = json as Map<String, dynamic>;
@@ -72,6 +67,31 @@ class ApiClient {
       return result;
     } catch (_) {
       return null;
+    }
+  }
+
+  /// Collects device signals for improved probabilistic fingerprint matching.
+  Map<String, String> _deviceSignals() {
+    try {
+      final signals = <String, String>{};
+      if (Platform.isIOS || Platform.isAndroid) {
+        // OS version: extract numeric part from "Version 17.2.1 (Build 21C52)" or "14"
+        final raw = Platform.operatingSystemVersion;
+        final match = RegExp(r'\d+[\d.]*').firstMatch(raw);
+        if (match != null) signals['os_version'] = match.group(0)!;
+
+        // Language (e.g. "en" from "en_US")
+        signals['language'] = Platform.localeName.split(RegExp(r'[_\-]')).first;
+
+        // Timezone as UTC offset string (e.g. "UTC-05:00")
+        final offset = DateTime.now().timeZoneOffset;
+        final h = offset.inHours.abs().toString().padLeft(2, '0');
+        final m = (offset.inMinutes.abs() % 60).toString().padLeft(2, '0');
+        signals['timezone'] = 'UTC${offset.isNegative ? '-' : '+'}$h:$m';
+      }
+      return signals;
+    } catch (_) {
+      return {};
     }
   }
 
