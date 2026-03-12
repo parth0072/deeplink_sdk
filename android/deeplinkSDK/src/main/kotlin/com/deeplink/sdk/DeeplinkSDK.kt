@@ -4,6 +4,8 @@ import android.content.Context
 import android.content.Intent
 import android.os.Build
 import android.provider.Settings
+import com.android.installreferrer.api.InstallReferrerClient
+import com.android.installreferrer.api.InstallReferrerStateListener
 import java.util.Locale
 import java.util.TimeZone
 
@@ -78,12 +80,16 @@ object DeeplinkSDK {
             return
         }
 
-        ApiClient.fetchInitData(cfg, collectDeviceSignals(ctx)) { data ->
-            if (data != null) {
-                prefs.edit().putBoolean(PREF_INIT_FETCHED, true).apply()
-            }
-            android.os.Handler(android.os.Looper.getMainLooper()).post {
-                callback(data)
+        // Read Play Install Referrer first — gives us the fingerprint ID embedded
+        // at click time for 100% deterministic matching (no permissions required).
+        readInstallReferrer(ctx) { referrerClickId ->
+            ApiClient.fetchInitData(cfg, collectDeviceSignals(ctx), referrerClickId) { data ->
+                if (data != null) {
+                    prefs.edit().putBoolean(PREF_INIT_FETCHED, true).apply()
+                }
+                android.os.Handler(android.os.Looper.getMainLooper()).post {
+                    callback(data)
+                }
             }
         }
     }
@@ -194,6 +200,56 @@ object DeeplinkSDK {
         return prefs.getString(PREF_SESSION_ID, null) ?: java.util.UUID.randomUUID().toString().also {
             prefs.edit().putString(PREF_SESSION_ID, it).apply()
         }
+    }
+
+    /**
+     * Reads the Play Store install referrer to extract our fingerprint click ID.
+     *
+     * When we redirect an Android user to the Play Store we append:
+     *   `&referrer=deeplink_click_id%3D{fingerprintId}`
+     *
+     * The Play Store preserves this string and delivers it via [InstallReferrerClient]
+     * on the first launch after install — enabling 100% deterministic matching
+     * regardless of network change, identical device models, or enterprise WiFi.
+     *
+     * No permissions required. Callback is always invoked (null on failure/unavailable).
+     */
+    private fun readInstallReferrer(ctx: Context, callback: (String?) -> Unit) {
+        try {
+            val client = InstallReferrerClient.newBuilder(ctx).build()
+            client.startConnection(object : InstallReferrerStateListener {
+                override fun onInstallReferrerSetupFinished(responseCode: Int) {
+                    if (responseCode == InstallReferrerClient.InstallReferrerResponse.OK) {
+                        try {
+                            val referrer = client.installReferrer.installReferrer
+                            client.endConnection()
+                            callback(parseClickId(referrer))
+                        } catch (_: Exception) {
+                            client.endConnection()
+                            callback(null)
+                        }
+                    } else {
+                        client.endConnection()
+                        callback(null)
+                    }
+                }
+                override fun onInstallReferrerServiceDisconnected() {
+                    callback(null)
+                }
+            })
+        } catch (_: Exception) {
+            callback(null)
+        }
+    }
+
+    /** Extract `deeplink_click_id` value from a Play Store referrer string. */
+    private fun parseClickId(referrer: String?): String? {
+        if (referrer.isNullOrBlank()) return null
+        // referrer format: "deeplink_click_id=<uuid>&utm_source=..."
+        return referrer.split('&')
+            .firstOrNull { it.startsWith("deeplink_click_id=") }
+            ?.removePrefix("deeplink_click_id=")
+            ?.takeIf { it.isNotBlank() }
     }
 
     /**

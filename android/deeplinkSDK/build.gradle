@@ -21,5 +21,8 @@ android {
 
 dependencies {
     implementation "org.jetbrains.kotlin:kotlin-stdlib:$kotlin_version"
-    // No external dependencies — uses only Android/Java standard library
+    // Play Install Referrer — reads the referrer string set when user was sent to Play Store.
+    // Lets us embed our fingerprint ID in the Play Store redirect URL and retrieve it on
+    // first install for 100% deterministic deferred deep link matching (no permissions needed).
+    implementation 'com.android.installreferrer:installreferrer:2.2'
 }

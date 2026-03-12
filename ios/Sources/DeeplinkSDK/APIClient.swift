@@ -6,6 +6,9 @@ internal final class APIClient {
     private let config: DeeplinkConfig
     private let session: URLSession
 
+    /// Set to true by Deeplink.checkPasteboardOnInstall() — reads UIPasteboard on /sdk/init.
+    var pasteboardCheckEnabled: Bool = false
+
     init(config: DeeplinkConfig) {
         self.config = config
         self.session = URLSession(configuration: .default)
@@ -27,6 +30,23 @@ internal final class APIClient {
         // Scores +50 pts → effectively deterministic after first match.
         if let idfv = UIDevice.current.identifierForVendor?.uuidString {
             body["idfv"] = idfv
+        }
+
+        // iOS Clipboard attribution (opt-in via checkPasteboardOnInstall).
+        // The redirect page writes "deeplink-click:{fingerprintId}" to UIPasteboard
+        // when the user taps "Open in Browser" → App Store. Reading here gives us the
+        // exact fingerprint ID for 100% deterministic matching.
+        // Note: reading UIPasteboard.general triggers the iOS 16+ "pasted from" toast.
+        if pasteboardCheckEnabled {
+            if let pasteStr = UIPasteboard.general.string,
+               pasteStr.hasPrefix("deeplink-click:") {
+                let clickId = String(pasteStr.dropFirst("deeplink-click:".count))
+                if !clickId.isEmpty {
+                    body["pasteboard_click_id"] = clickId
+                    // Clear after reading so it doesn't match again on re-launch
+                    UIPasteboard.general.string = nil
+                }
+            }
         }
 
         // Native device signals for probabilistic scoring

@@ -13,10 +13,13 @@ internal object ApiClient {
      * @param deviceSignals Optional device fingerprint signals to improve deferred
      *   deep link matching accuracy. Keys: device_model, os_version, screen_res,
      *   timezone, language.
+     * @param referrerClickId Fingerprint ID from Play Install Referrer — enables
+     *   100% deterministic matching when present.
      */
     fun fetchInitData(
         config: DeeplinkConfig,
         deviceSignals: Map<String, String?> = emptyMap(),
+        referrerClickId: String? = null,
         callback: (DeeplinkData?) -> Unit,
     ) {
         Thread {
@@ -24,6 +27,7 @@ internal object ApiClient {
                 put("api_key", config.apiKey)
                 put("user_agent", buildUserAgent())
                 deviceSignals.forEach { (k, v) -> if (v != null) put(k, v) }
+                if (referrerClickId != null) put("referrer_click_id", referrerClickId)
             }
             val result = post(config, "/sdk/init", body, timeout = 10_000) { json ->
                 if (!json.optBoolean("matched", false)) return@post null
