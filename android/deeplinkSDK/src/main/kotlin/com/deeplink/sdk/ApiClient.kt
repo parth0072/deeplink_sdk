@@ -83,6 +83,23 @@ internal object ApiClient {
         }.start()
     }
 
+    /**
+     * Record an impression for a link displayed in-app. Fire-and-forget.
+     * Opening the link URL already auto-records an impression; call this only
+     * when you show a link inside a banner or share sheet without the user opening it.
+     */
+    fun recordImpression(config: DeeplinkConfig, alias: String, callback: ((Boolean) -> Unit)? = null) {
+        Thread {
+            val body = JSONObject().apply {
+                put("api_key", config.apiKey)
+                put("link_alias", alias)
+                put("platform", "android")
+            }
+            post(config, "/api/impressions", body) { _: JSONObject -> null }
+            android.os.Handler(android.os.Looper.getMainLooper()).post { callback?.invoke(true) }
+        }.start()
+    }
+
     fun trackEvent(config: DeeplinkConfig, name: String, properties: Map<String, Any>, sessionId: String) {
         Thread {
             val body = JSONObject().apply {

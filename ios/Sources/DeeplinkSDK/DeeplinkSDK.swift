@@ -141,6 +141,23 @@ public final class Deeplink {
         }
     }
 
+    /// Record an impression for a link displayed in-app.
+    ///
+    /// Opening the link URL already records an impression automatically.
+    /// Call this only when you show a deep link inside a banner, share sheet,
+    /// or any in-app surface without the user opening the link URL.
+    ///
+    /// ```swift
+    /// Deeplink.recordImpression(alias: "summer-sale")
+    /// ```
+    public static func recordImpression(alias: String, completion: ((Bool) -> Void)? = nil) {
+        guard let sdk = shared else {
+            assertionFailure("Deeplink.configure() must be called first")
+            return
+        }
+        sdk.apiClient.recordImpression(alias: alias, completion: completion)
+    }
+
     /// Track a custom event. Properties values must be JSON-serialisable types
     /// (String, Int, Double, Bool).
     ///

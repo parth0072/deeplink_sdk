@@ -138,6 +138,22 @@ object DeeplinkSDK {
     }
 
     /**
+     * Record an impression for a link displayed in-app.
+     *
+     * Opening the link URL already records an impression automatically.
+     * Call this only when you show a deep link inside a banner or share sheet
+     * without the user actually opening the link URL.
+     *
+     * ```kotlin
+     * DeeplinkSDK.recordImpression("summer-sale")
+     * ```
+     */
+    fun recordImpression(alias: String, callback: ((Boolean) -> Unit)? = null) {
+        val cfg = requireConfig()
+        ApiClient.recordImpression(cfg, alias, callback)
+    }
+
+    /**
      * Track a custom event with optional properties.
      *
      * ```kotlin
