@@ -49,6 +49,24 @@ public final class Deeplink {
         shared = Deeplink(config: DeeplinkConfig(apiKey: apiKey, domain: domain))
     }
 
+    /// Enable clipboard-based deferred deep link attribution (opt-in).
+    ///
+    /// When enabled, `getInitData()` reads `UIPasteboard.general.string` on the
+    /// first call to look for a click ID written by the redirect page when the user
+    /// tapped "Open in Browser". If found, the match is 100% deterministic.
+    ///
+    /// **Note:** Reading `UIPasteboard.general` triggers the iOS system toast
+    /// ("App pasted from …") on iOS 16+. Call this only if you are comfortable
+    /// showing that notification, or first inform the user why.
+    ///
+    /// ```swift
+    /// Deeplink.checkPasteboardOnInstall()
+    /// Deeplink.getInitData { data in ... }
+    /// ```
+    public static func checkPasteboardOnInstall() {
+        shared?.apiClient.pasteboardCheckEnabled = true
+    }
+
     /// Handle an incoming URL (universal link or custom URL scheme).
     /// - Returns: Parsed ``IncomingLink`` if the URL belongs to this SDK's domain.
     @discardableResult
