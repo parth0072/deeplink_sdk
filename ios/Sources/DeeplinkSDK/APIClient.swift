@@ -17,50 +17,59 @@ internal final class APIClient {
     // MARK: - SDK Endpoints
 
     func fetchInitData(completion: @escaping (DeeplinkData?) -> Void) {
-        var body: [String: Any] = [
-            "api_key":    config.apiKey,
-            "user_agent": userAgent(),
-        ]
+        // Collect all UIKit signals on main thread first to avoid deadlocks.
+        // UIScreen.main, UIDevice, UIPasteboard all require main thread access.
+        let collectAndFire = {
+            var body: [String: Any] = [
+                "api_key":    self.config.apiKey,
+                "user_agent": self.userAgent(),
+            ]
 
-        // Keychain device ID — survives reinstall, deterministic on returning users
-        body["device_id"] = KeychainHelper.getOrCreateDeviceId()
+            // Keychain device ID — survives reinstall, deterministic on returning users
+            body["device_id"] = KeychainHelper.getOrCreateDeviceId()
 
-        // IDFV — Apple's own stable per-vendor identifier, no ATT needed.
-        // Resets only if ALL apps from this vendor are removed from the device.
-        // Scores +50 pts → effectively deterministic after first match.
-        if let idfv = UIDevice.current.identifierForVendor?.uuidString {
-            body["idfv"] = idfv
-        }
+            // IDFV — Apple's stable per-vendor identifier, no ATT needed.
+            if let idfv = UIDevice.current.identifierForVendor?.uuidString {
+                body["idfv"] = idfv
+            }
 
-        // iOS Clipboard attribution (opt-in via checkPasteboardOnInstall).
-        // The redirect page writes "deeplink-click:{fingerprintId}" to UIPasteboard
-        // when the user taps "Open in Browser" → App Store. Reading here gives us the
-        // exact fingerprint ID for 100% deterministic matching.
-        // Note: reading UIPasteboard.general triggers the iOS 16+ "pasted from" toast.
-        if pasteboardCheckEnabled {
-            if let pasteStr = UIPasteboard.general.string,
-               pasteStr.hasPrefix("deeplink-click:") {
-                let clickId = String(pasteStr.dropFirst("deeplink-click:".count))
-                if !clickId.isEmpty {
-                    body["pasteboard_click_id"] = clickId
-                    // Clear after reading so it doesn't match again on re-launch
-                    UIPasteboard.general.string = nil
+            // iOS Clipboard attribution (opt-in via checkPasteboardOnInstall).
+            // The redirect page writes "deeplink-click:{fingerprintId}" to UIPasteboard
+            // when the user taps "Open in Browser" → App Store.
+            // Note: reading UIPasteboard.general triggers the iOS 16+ "pasted from" toast.
+            if self.pasteboardCheckEnabled {
+                if let pasteStr = UIPasteboard.general.string,
+                   pasteStr.hasPrefix("deeplink-click:") {
+                    let clickId = String(pasteStr.dropFirst("deeplink-click:".count))
+                    if !clickId.isEmpty {
+                        body["pasteboard_click_id"] = clickId
+                        UIPasteboard.general.string = nil
+                    }
+                }
+            }
+
+            // Native device signals for probabilistic scoring
+            body["device_model"] = self.deviceModel()
+            body["os_version"]   = UIDevice.current.systemVersion
+            body["screen_res"]   = self.screenRes()
+            body["timezone"]     = TimeZone.current.identifier
+            body["language"]     = Locale.current.languageCode ?? "en"
+
+            // Fire network call on background thread — never block the main thread
+            DispatchQueue.global(qos: .userInitiated).async {
+                self.post("/sdk/init", body: body) { (response: SDKInitResponse?) in
+                    guard let response, response.matched, let data = response.data else {
+                        completion(nil); return
+                    }
+                    completion(data.toDeeplinkData())
                 }
             }
         }
 
-        // Native device signals for probabilistic scoring
-        body["device_model"] = deviceModel()
-        body["os_version"]   = UIDevice.current.systemVersion
-        body["screen_res"]   = screenRes()
-        body["timezone"]     = TimeZone.current.identifier
-        body["language"]     = Locale.current.languageCode ?? "en"
-
-        post("/sdk/init", body: body) { (response: SDKInitResponse?) in
-            guard let response, response.matched, let data = response.data else {
-                completion(nil); return
-            }
-            completion(data.toDeeplinkData())
+        if Thread.isMainThread {
+            collectAndFire()
+        } else {
+            DispatchQueue.main.async { collectAndFire() }
         }
     }
 
@@ -102,8 +111,6 @@ internal final class APIClient {
     }
 
     /// Record an impression for a link shown in-app.
-    /// Opening the link URL already auto-records an impression; call this only
-    /// when you display a link inside a banner or share sheet without opening it.
     func recordImpression(alias: String, completion: ((Bool) -> Void)? = nil) {
         post("/api/impressions", body: [
             "api_key": config.apiKey,
@@ -159,27 +166,23 @@ internal final class APIClient {
     }
 
     /// Returns the hardware model identifier, e.g. "iPhone15,2".
+    /// Uses sysctlbyname — safe to call on any thread.
     private func deviceModel() -> String {
-        var info = utsname()
-        uname(&info)
-        return withUnsafePointer(to: &info.machine) {
-            $0.withMemoryRebound(to: CChar.self, capacity: 1) { String(cString: $0) }
-        }
+        var size = 0
+        sysctlbyname("hw.machine", nil, &size, nil, 0)
+        var machine = [CChar](repeating: 0, count: size)
+        sysctlbyname("hw.machine", &machine, &size, nil, 0)
+        return String(cString: machine)
     }
 
-    /// Returns screen resolution as "widthxheightxscale", matching what the web
-    /// browser JS reports via `screen.width + 'x' + screen.height + 'x' + devicePixelRatio`.
+    /// Returns screen resolution as "widthxheightxscale".
+    /// Must be called on the main thread — enforced by fetchInitData().
     private func screenRes() -> String {
-        var result = ""
-        let capture = {
-            let s = UIScreen.main
-            let w = Int(s.bounds.width)
-            let h = Int(s.bounds.height)
-            let scale = Int(s.scale)
-            result = "\(w)x\(h)x\(scale)"
-        }
-        if Thread.isMainThread { capture() } else { DispatchQueue.main.sync { capture() } }
-        return result
+        let s = UIScreen.main
+        let w = Int(s.bounds.width)
+        let h = Int(s.bounds.height)
+        let scale = Int(s.scale)
+        return "\(w)x\(h)x\(scale)"
     }
 }
 
