@@ -1,0 +1,73 @@
+name: Release Android SDK
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build-and-publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Generate Gradle wrapper
+        working-directory: android
+        run: gradle wrapper --gradle-version=8.1.1
+
+      - name: Build AAR
+        working-directory: android
+        run: |
+          chmod +x gradlew
+          ./gradlew :deeplinkSDK:assembleRelease
+          mkdir -p dist
+          VERSION="${GITHUB_REF_NAME#v}"
+          cp deeplinkSDK/build/outputs/aar/deeplinkSDK-release.aar "dist/deeplink-sdk-${VERSION}.aar"
+          echo "AAR_PATH=android/dist/deeplink-sdk-${VERSION}.aar" >> $GITHUB_ENV
+          echo "VERSION=${VERSION}" >> $GITHUB_ENV
+
+      - name: Checkout distribution repo
+        uses: actions/checkout@v4
+        with:
+          repository: parth0072/deeplink-android-sdk
+          token: ${{ secrets.DIST_REPO_TOKEN }}
+          path: dist-android
+
+      - name: Update distribution repo
+        run: |
+          cd dist-android
+          mkdir -p libs
+          cp "../$AAR_PATH" "libs/deeplink-sdk.aar"
+          git config user.email "ci@deeplink.ai"
+          git config user.name "Deeplink CI"
+          git add libs/deeplink-sdk.aar
+          git commit -m "release: v$VERSION — update AAR" || echo "No changes"
+          git push
+
+      - name: Create GitHub Release on distribution repo
+        env:
+          GH_TOKEN: ${{ secrets.DIST_REPO_TOKEN }}
+        run: |
+          gh release create "v$VERSION" "$AAR_PATH" \
+            --repo parth0072/deeplink-android-sdk \
+            --title "DeeplinkSDK Android v$VERSION" \
+            --notes "Binary AAR release. Source: [deeplink_sdk](https://github.com/parth0072/deeplink_sdk)
+
+## Integration
+\`\`\`groovy
+dependencies {
+    implementation files('libs/deeplink-sdk.aar')
+    implementation 'com.android.installreferrer:installreferrer:2.2'
+}
+\`\`\`" \
+            --latest

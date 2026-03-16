@@ -1,0 +1,12 @@
+# Build artifacts
+ios/.build/
+ios/dist/
+android/.gradle/
+android/gradle/
+android/gradlew
+android/gradlew.bat
+android/local.properties
+android/deeplinkSDK/build/
+android/dist/
+ios/build/
+android/build/

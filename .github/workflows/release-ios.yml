@@ -1,0 +1,79 @@
+name: Release iOS SDK
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build-and-publish:
+    runs-on: macos-latest
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Select Xcode
+        run: sudo xcode-select -s /Applications/Xcode.app
+
+      - name: Build XCFramework
+        working-directory: ios
+        run: |
+          chmod +x scripts/build_xcframework.sh
+          VERSION="${GITHUB_REF_NAME#v}"
+          bash scripts/build_xcframework.sh "$VERSION"
+          echo "VERSION=${VERSION}" >> $GITHUB_ENV
+          echo "CHECKSUM=$(cat dist/DeeplinkSDK.xcframework.zip.checksum)" >> $GITHUB_ENV
+
+      - name: Checkout distribution repo
+        uses: actions/checkout@v4
+        with:
+          repository: parth0072/deeplink-ios-sdk
+          token: ${{ secrets.DIST_REPO_TOKEN }}
+          path: dist-ios
+
+      - name: Update Package.swift with new checksum and tag
+        run: |
+          TAG="v$VERSION"
+          RELEASE_URL="https://github.com/parth0072/deeplink-ios-sdk/releases/download/${TAG}/DeeplinkSDK.xcframework.zip"
+          cat > dist-ios/Package.swift <<SWIFT
+          // swift-tools-version: 5.9
+          import PackageDescription
+
+          let package = Package(
+              name: "DeeplinkSDK",
+              platforms: [
+                  .iOS(.v14),
+              ],
+              products: [
+                  .library(name: "DeeplinkSDK", targets: ["DeeplinkSDK"]),
+              ],
+              targets: [
+                  .binaryTarget(
+                      name: "DeeplinkSDK",
+                      url: "${RELEASE_URL}",
+                      checksum: "${CHECKSUM}"
+                  ),
+              ]
+          )
+          SWIFT
+          cd dist-ios
+          git config user.email "ci@deeplink.ai"
+          git config user.name "Deeplink CI"
+          git add Package.swift
+          git commit -m "release: $TAG — update XCFramework checksum" || echo "No changes"
+          git tag "$TAG"
+          git push
+          git push origin "$TAG"
+
+      - name: Create GitHub Release on distribution repo
+        env:
+          GH_TOKEN: ${{ secrets.DIST_REPO_TOKEN }}
+        run: |
+          gh release create "v$VERSION" "ios/dist/DeeplinkSDK.xcframework.zip" \
+            --repo parth0072/deeplink-ios-sdk \
+            --title "DeeplinkSDK v$VERSION" \
+            --notes "Binary XCFramework release. Source: [deeplink_sdk](https://github.com/parth0072/deeplink_sdk)
+
+## Integrate via Swift Package Manager
+Add \`https://github.com/parth0072/deeplink-ios-sdk\` in Xcode → File → Add Package Dependencies." \
+            --latest
